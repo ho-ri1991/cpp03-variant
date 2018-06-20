@@ -2,6 +2,7 @@
 #define TYPE_WITH_ALIGNMENT_HPP
 
 #include "alignment_of.hpp"
+#include "type_list.hpp"
 
 namespace my {
 namespace type_traits {
@@ -29,46 +30,21 @@ namespace type_traits {
       member_function_ptr mfp;
     };
 
-    template <std::size_t Target, bool check = alignment_of<long double>::value == Target>
-    struct long_double_alignment { typedef long double type; };
-    template <std::size_t Target>
-    struct long_double_alignment<Target, false> { typedef max_align type; };
-
-    template <std::size_t Target, bool check = alignment_of<double>::value == Target>
-    struct double_alignment { typedef double type; };
-    template <std::size_t Target>
-    struct double_alignment<Target, false> { typedef typename long_double_alignment<Target>::type type; };
-
-    template <std::size_t Target, bool check = alignment_of<long long>::value == Target>
-    struct long_long_alignment { typedef long long type; };
-    template <std::size_t Target>
-    struct long_long_alignment<Target, false> { typedef typename double_alignment<Target>::type type; };
-
-    template <std::size_t Target, bool check = alignment_of<long>::value == Target>
-    struct long_alignment { typedef long type; };
-    template <std::size_t Target>
-    struct long_alignment<Target, false> { typedef typename long_long_alignment<Target>::type type; };
-
-    template <std::size_t Target, bool check = alignment_of<int>::value == Target>
-    struct int_alignment { typedef int type; };
-    template <std::size_t Target>
-    struct int_alignment<Target, false> { typedef typename long_alignment<Target>::type type; };
-
-    template <std::size_t Target, bool check = alignment_of<short>::value == Target>
-    struct short_alignment { typedef short type; };
-    template <std::size_t Target>
-    struct short_alignment<Target, false> { typedef typename int_alignment<Target>::type type; };
-
-    template <std::size_t Target, bool check = alignment_of<char>::value == Target>
-    struct char_alignment { typedef char type; };
-    template <std::size_t Target>
-    struct char_alignment<Target, false> { typedef typename short_alignment<Target>::type type; };
+    template <std::size_t Target, class TypeList, bool check = alignment_of<typename head<TypeList>::type>::value == Target>
+    struct type_with_alignment_impl{ typedef typename head<TypeList>::type type; };
+    template <std::size_t Target, class TypeList>
+    struct type_with_alignment_impl<Target, TypeList, false>: public type_with_alignment_impl<Target, typename tail<TypeList>::type>{};
+    template <std::size_t Target, class T>
+    struct type_with_alignment_impl<Target, type_list<T, null_type>, false> { typedef max_align type; };
   }
 
   template <std::size_t Alignment>
   struct type_with_alignment
   {
-    typedef typename detail::char_alignment<Alignment>::type type;
+    typedef typename detail::type_with_alignment_impl<
+      Alignment, 
+      MAKE_MY_TYPE_LIST_12(char, short, int, long, long long, float, double, long double, void*, detail::function_ptr, detail::member_function_ptr, detail::member_ptr)
+    >::type type;
   };
 
 }}
