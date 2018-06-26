@@ -49,6 +49,13 @@ namespace my {
     template <std::size_t Alignment, class T>
     struct is_aligned_for_all<Alignment, type_traits::type_list<T, type_traits::null_type>, false>: type_traits::true_type{};
 
+    template <class TypeList, std::size_t I, class T>
+    T* variant_initializer_impl_helper(const T& val, void* ptr, std::size_t& d)
+    {
+      T* tmp = new(ptr) T(val);
+      d = I;
+      return tmp; 
+    }
     template <class TypeList, std::size_t I>
     struct variant_initializer_impl: variant_initializer_impl<typename type_traits::tail<TypeList>::type, I + 1>
     {
@@ -56,20 +63,17 @@ namespace my {
       typedef typename type_traits::head<TypeList>::type T;
       static T* initialize(const T& val, void* ptr, std::size_t& d)
       {
-        T* tmp = new(ptr) T(val);
-        d = I;
-        return tmp; 
+        return variant_initializer_impl_helper<TypeList, I, T>(val, ptr, d);
       }
       using base::initialize;
     };
     template <class T, std::size_t I>
     struct variant_initializer_impl<type_traits::type_list<T, type_traits::null_type>, I>
     {
+      typedef type_traits::type_list<T, type_traits::null_type> TypeList;
       static T* initialize(const T& val, void* ptr, std::size_t& d)
       {
-        T* tmp = new(ptr) T(val);
-        d = I;
-        return tmp;
+        return variant_initializer_impl_helper<TypeList, I, T>(val, ptr, d);
       }
     };
     template <class TypeList>
@@ -107,6 +111,49 @@ namespace my {
         variant_destructor_impl<TypeList, 0>::destory(ptr, d);
       }
     };
+
+    template <class TypeList, std::size_t I, class T>
+    void* variant_assigner_impl_helper(const T& val, void* ptr, std::size_t& d)
+    {
+      void* tmp = ptr;
+      if (d == I)
+      {
+        *static_cast<T*>(ptr) = val;
+      }
+      else
+      {
+        variant_destructor<TypeList>::destory(ptr, d);
+        tmp = new(ptr) T(val);
+        d = I;
+      }
+      return tmp;
+    }
+    template <class TypeList, std::size_t I>
+    struct variant_assigner_impl: variant_assigner_impl<typename type_traits::tail<TypeList>::type, I + 1>
+    {
+      typedef variant_assigner_impl<typename type_traits::tail<TypeList>::type, I + 1> base;
+      typedef typename type_traits::head<TypeList>::type T;
+      static void* assign(const T& val, void* ptr, std::size_t& d)
+      {
+        return variant_initializer_impl_helper<TypeList, I, T>(val, ptr, d);
+      }
+      using base::assign;
+    };
+    template <class T, std::size_t I>
+    struct variant_assigner_impl<type_traits::type_list<T, type_traits::null_type>, I>
+    {
+      typedef type_traits::type_list<T, type_traits::null_type> TypeList;
+      static void* assign(const T& val, void* ptr, std::size_t& d)
+      {
+        return variant_assigner_impl_helper<TypeList, I, T>(val, ptr, d);
+      }
+    };
+    template <class TypeList>
+    struct variant_assigner: variant_assigner_impl<TypeList, 0>
+    {
+      using variant_assigner_impl<TypeList, 0>::assign;
+    };
+
   }
 
   namespace variant_storage
@@ -127,7 +174,15 @@ namespace my {
       {
         ptr = detail::variant_initializer<TypeList>::initialize(val, storage.address(), discriminator);
       }
-      void destory() { detail::variant_destructor<TypeList>::destory(ptr, discriminator); }
+      void destory()
+      {
+        detail::variant_destructor<TypeList>::destory(ptr, discriminator);
+      }
+      template <class T>
+      void assign(const T& val)
+      {
+        ptr = detail::variant_assigner<TypeList>::assign(val, storage.address(), discriminator);
+      }
       std::size_t get_discriminator() const { return discriminator; }
       void* get_raw_buffer() { return storage.address(); }
       const void* get_raw_buffer() const { return storage.address(); }
