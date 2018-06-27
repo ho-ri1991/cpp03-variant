@@ -8,7 +8,11 @@
 #include "aligned_storage.hpp"
 #include "static_assert.hpp"
 
+#define MY_NOEXCEPT throw()
+
 namespace my {
+
+  const std::size_t variant_nops = -1;
 
   namespace detail
   {
@@ -154,6 +158,51 @@ namespace my {
       using variant_assigner_impl<TypeList, 0>::assign;
     };
 
+    template <class TypeList, class Variant, std::size_t I>
+    struct variant_copy_initializer_impl
+    {
+      typedef variant_copy_initializer_impl<TypeList, Variant, I + 1> next;
+      typedef typename type_traits::head<TypeList>::type T;
+      static void* copy_initialize(const Variant& other, void* ptr, std::size_t& d)
+      {
+        if (I == other.index())
+        {
+          T* tmp = new(ptr) T(other.get());
+          d = I;
+          return tmp;
+        }
+        else
+        {
+          return next::copy_initialize(other, ptr, d);
+        }
+      }
+    };
+    template <class T, class Variant, std::size_t I>
+    struct variant_copy_initializer_impl<type_traits::type_list<T, type_traits::null_type>, Variant, I>
+    {
+      static void* copy_initialize(const Variant& other, void* ptr, std::size_t& d)
+      {
+        if (I == other.index())
+        {
+          T* tmp = new(ptr) T(other.get());
+          d = I;
+          return tmp;
+        }
+        else
+        {
+          d = variant_nops;
+          return NULL;
+        }
+      }
+    };
+    template <class TypeList, class Variant>
+    struct variant_copy_initializer
+    {
+      static void* copy_initialize(const Variant& other, void* ptr, std::size_t& d)
+      {
+        return variant_copy_initializer_impl<TypeList, Variant, 0>::copy_initialize(other, ptr, d);
+      }
+    };
   }
 
   namespace variant_storage
@@ -191,10 +240,41 @@ namespace my {
       template <class T>
       const T* get_as() const { return reinterpret_cast<const T*>(storage.address()); }
     };
+    template <class TypeList>
+    class dynamic_storage
+    {
+      void* ptr;
+      std::size_t discriminator;
+    public:
+      template <class T>
+      dynamic_storage(const T& val);
+      template <class T>
+      void assign(const T& val);
+      void destory();
+      std::size_t get_discriminator() const MY_NOEXCEPT { return discriminator; }
+      void* get_raw_buffer() MY_NOEXCEPT { return ptr; }
+      const void* get_raw_buffer() const MY_NOEXCEPT { return ptr; }
+      template <class T>
+      T* get_as() MY_NOEXCEPT { return reinterpret_cast<T*>(ptr); }
+      template <class T>
+      const T* get_as() const MY_NOEXCEPT { return reinterpret_cast<const T*>(ptr); }
+    };
   }
 
-  template <class TypeList, class StoragePolicy>
+  template <class TypeList, template <class> class Storage>
   class variant {
+  private:
+    typedef TypeList type_list;
+    Storage<TypeList> storage;
+    typedef typename type_traits::head<TypeList>::type head_type;
+    template <std::size_t I>
+    typename type_traits::add_reference<typename type_traits::get<TypeList, I>::type>::type get();
+    template <std::size_t I>
+    typename type_traits::add_reference<typename type_traits::add_const<typename type_traits::get<TypeList, I>::type>::type>::type get() const;
+  public:
+    std::size_t index() const MY_NOEXCEPT { return storage.get_discriminator(); }
+    variant(): storage((head_type())) {}
+    variant(const variant& other) {  }
   };
 }
 
