@@ -203,6 +203,33 @@ namespace my {
         return variant_copy_initializer_impl<TypeList, Variant, 0>::copy_initialize(other, ptr, d);
       }
     };
+
+    template <class TypeList, class Visitor, std::size_t I>
+    struct variant_index_visit_impl
+    {
+      typedef variant_index_visit_impl<typename type_traits::tail<TypeList>::type, Visitor, I + 1> next;
+      typedef typename type_traits::head<TypeList>::type T;
+      static void visit_by_index(Visitor v, std::size_t d)
+      {
+        if (I == d)
+          v.template visit<I>();
+        else
+          next::visit_by_index(v, d);
+      }
+    };
+    template <class T, class Visitor, std::size_t I>
+    struct variant_index_visit_impl<type_traits::type_list<T, type_traits::null_type>, Visitor, I>
+    {
+      static void visit_by_index(Visitor v, std::size_t d)
+      {
+        if (I == d)
+          v.template visit<I>();
+        else
+          v.template visit<I + 1>();
+      }
+    };
+    template <class TypeList, class Visitor>
+    void variant_index_visit(Visitor v, std::size_t index) { variant_index_visit_impl<TypeList, Visitor, 0>::visit_by_index(v, index); }
   }
 
   namespace variant_storage
@@ -216,7 +243,26 @@ namespace my {
       void* ptr;
       std::size_t discriminator;
       enum { is_aligned_for_all = detail::is_aligned_for_all<max_alignment, TypeList>::value };
-      STATIC_ASSERT(is_aligned_for_all == 1, variant_storage_alignment_failure);
+      enum { type_num = type_traits::length<TypeList>::value };
+    private:
+      template <std::size_t I, class Dummy = void>
+      struct destroy_visitor_impl
+      {
+        static void visit_impl(void* ptr) MY_NOEXCEPT
+        {
+          typedef typename type_traits::get<TypeList, I>::type T;
+          static_cast<T*>(ptr)->~T();
+        }
+      };
+      template <class Dummy>
+      struct destroy_visitor_impl<type_num, Dummy> { static void visit_impl(void* ptr) MY_NOEXCEPT {} };
+      struct destroy_visitor
+      {
+        void* ptr;
+        template <std::size_t I>
+        void visit() MY_NOEXCEPT { destroy_visitor_impl<I>::visit_impl(ptr); }
+      };
+
     public:
       template <class T>
       local_storage(const T& val)
@@ -240,6 +286,7 @@ namespace my {
       template <class T>
       const T* get_as() const { return reinterpret_cast<const T*>(storage.address()); }
     };
+
     template <class TypeList>
     class dynamic_storage
     {
