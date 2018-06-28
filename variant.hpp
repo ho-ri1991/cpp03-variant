@@ -2,6 +2,7 @@
 #define VARIANT_HPP
 
 #include <new>
+#include <cassert>
 #include "type_list.hpp"
 #include "type_traits.hpp"
 #include "alignment_of.hpp"
@@ -53,157 +54,6 @@ namespace my {
     template <std::size_t Alignment, class T>
     struct is_aligned_for_all<Alignment, type_traits::type_list<T, type_traits::null_type>, false>: type_traits::true_type{};
 
-    template <class TypeList, std::size_t I, class T>
-    T* variant_initializer_impl_helper(const T& val, void* ptr, std::size_t& d)
-    {
-      T* tmp = new(ptr) T(val);
-      d = I;
-      return tmp; 
-    }
-    template <class TypeList, std::size_t I>
-    struct variant_initializer_impl: variant_initializer_impl<typename type_traits::tail<TypeList>::type, I + 1>
-    {
-      typedef variant_initializer_impl<typename type_traits::tail<TypeList>::type, I + 1> base;
-      typedef typename type_traits::head<TypeList>::type T;
-      static T* initialize(const T& val, void* ptr, std::size_t& d)
-      {
-        return variant_initializer_impl_helper<TypeList, I, T>(val, ptr, d);
-      }
-      using base::initialize;
-    };
-    template <class T, std::size_t I>
-    struct variant_initializer_impl<type_traits::type_list<T, type_traits::null_type>, I>
-    {
-      typedef type_traits::type_list<T, type_traits::null_type> TypeList;
-      static T* initialize(const T& val, void* ptr, std::size_t& d)
-      {
-        return variant_initializer_impl_helper<TypeList, I, T>(val, ptr, d);
-      }
-    };
-    template <class TypeList>
-    struct variant_initializer: variant_initializer_impl<TypeList, 0>
-    {
-      using variant_initializer_impl<TypeList, 0>::initialize;
-    };
-
-    template <class TypeList, std::size_t I>
-    struct variant_destructor_impl
-    {
-      typedef variant_destructor_impl<typename type_traits::tail<TypeList>::type, I + 1> next;
-      typedef typename type_traits::head<TypeList>::type T;
-      static void destory(void* ptr, std::size_t d)
-      {
-        if (d == I)
-          static_cast<T*>(ptr)->~T();
-        else
-          next::destory(ptr, d);
-      }
-    };
-    template <class T, std::size_t I>
-    struct variant_destructor_impl<type_traits::type_list<T, type_traits::null_type>, I>
-    {
-      static void destory(void* ptr, std::size_t d)
-      {
-        if (I == d) static_cast<T*>(ptr)->~T();
-      }
-    };
-    template <class TypeList>
-    struct variant_destructor
-    {
-      static void destory(void* ptr, std::size_t d)
-      {
-        variant_destructor_impl<TypeList, 0>::destory(ptr, d);
-      }
-    };
-
-    template <class TypeList, std::size_t I, class T>
-    void* variant_assigner_impl_helper(const T& val, void* ptr, std::size_t& d)
-    {
-      void* tmp = ptr;
-      if (d == I)
-      {
-        *static_cast<T*>(ptr) = val;
-      }
-      else
-      {
-        variant_destructor<TypeList>::destory(ptr, d);
-        tmp = new(ptr) T(val);
-        d = I;
-      }
-      return tmp;
-    }
-    template <class TypeList, std::size_t I>
-    struct variant_assigner_impl: variant_assigner_impl<typename type_traits::tail<TypeList>::type, I + 1>
-    {
-      typedef variant_assigner_impl<typename type_traits::tail<TypeList>::type, I + 1> base;
-      typedef typename type_traits::head<TypeList>::type T;
-      static void* assign(const T& val, void* ptr, std::size_t& d)
-      {
-        return variant_initializer_impl_helper<TypeList, I, T>(val, ptr, d);
-      }
-      using base::assign;
-    };
-    template <class T, std::size_t I>
-    struct variant_assigner_impl<type_traits::type_list<T, type_traits::null_type>, I>
-    {
-      typedef type_traits::type_list<T, type_traits::null_type> TypeList;
-      static void* assign(const T& val, void* ptr, std::size_t& d)
-      {
-        return variant_assigner_impl_helper<TypeList, I, T>(val, ptr, d);
-      }
-    };
-    template <class TypeList>
-    struct variant_assigner: variant_assigner_impl<TypeList, 0>
-    {
-      using variant_assigner_impl<TypeList, 0>::assign;
-    };
-
-    template <class TypeList, class Variant, std::size_t I>
-    struct variant_copy_initializer_impl
-    {
-      typedef variant_copy_initializer_impl<TypeList, Variant, I + 1> next;
-      typedef typename type_traits::head<TypeList>::type T;
-      static void* copy_initialize(const Variant& other, void* ptr, std::size_t& d)
-      {
-        if (I == other.index())
-        {
-          T* tmp = new(ptr) T(other.get());
-          d = I;
-          return tmp;
-        }
-        else
-        {
-          return next::copy_initialize(other, ptr, d);
-        }
-      }
-    };
-    template <class T, class Variant, std::size_t I>
-    struct variant_copy_initializer_impl<type_traits::type_list<T, type_traits::null_type>, Variant, I>
-    {
-      static void* copy_initialize(const Variant& other, void* ptr, std::size_t& d)
-      {
-        if (I == other.index())
-        {
-          T* tmp = new(ptr) T(other.get());
-          d = I;
-          return tmp;
-        }
-        else
-        {
-          d = variant_nops;
-          return NULL;
-        }
-      }
-    };
-    template <class TypeList, class Variant>
-    struct variant_copy_initializer
-    {
-      static void* copy_initialize(const Variant& other, void* ptr, std::size_t& d)
-      {
-        return variant_copy_initializer_impl<TypeList, Variant, 0>::copy_initialize(other, ptr, d);
-      }
-    };
-
     template <class TypeList, class Visitor, std::size_t I>
     struct variant_index_visit_impl
     {
@@ -230,6 +80,24 @@ namespace my {
     };
     template <class TypeList, class Visitor>
     void variant_index_visit(Visitor v, std::size_t index) { variant_index_visit_impl<TypeList, Visitor, 0>::visit_by_index(v, index); }
+
+    template <class TypeList, class Fn, std::size_t I>
+    struct variant_overload_resolver_impl: variant_overload_resolver_impl<typename type_traits::tail<TypeList>::type, Fn, I + 1>
+    {
+      typedef variant_overload_resolver_impl<typename type_traits::tail<TypeList>::type, Fn, I + 1> base;
+      typedef typename type_traits::head<TypeList>::type T;
+      static void overload(const T& val, Fn fn) { fn.template invoke<I>(val); }
+      using base::overload;
+    };
+    template <class T, class Fn, std::size_t I>
+    struct variant_overload_resolver_impl<type_traits::type_list<T, type_traits::null_type>, Fn, I>
+    {
+      static void overload(const T& val, Fn fn) { fn.template invoke<I>(val); }
+    };
+    template <class TypeList, class Fn>
+    struct variant_overload_resolver: variant_overload_resolver_impl<TypeList, Fn, 0> { using variant_overload_resolver_impl<TypeList, Fn, 0>::overload; };
+    template <class TypeList, class T, class Fn>
+    void variant_overload_resolve(const T& val, Fn fn) { variant_overload_resolver<TypeList, Fn>::overload(val, fn); }
   }
 
   namespace variant_storage
@@ -244,6 +112,14 @@ namespace my {
       std::size_t discriminator;
       enum { is_aligned_for_all = detail::is_aligned_for_all<max_alignment, TypeList>::value };
       enum { type_num = type_traits::length<TypeList>::value };
+    public:
+      std::size_t get_discriminator() const { return discriminator; }
+      void* get_raw_buffer() { return storage.address(); }
+      const void* get_raw_buffer() const { return storage.address(); }
+      template <class T>
+      T* get_as() { return reinterpret_cast<T*>(storage.address()); }
+      template <class T>
+      const T* get_as() const { return reinterpret_cast<const T*>(storage.address()); }
     private:
       template <std::size_t I, class Dummy = void>
       struct destroy_visitor_impl
@@ -259,32 +135,152 @@ namespace my {
       struct destroy_visitor
       {
         void* ptr;
+        destroy_visitor(void* ptr): ptr(ptr) {}
         template <std::size_t I>
         void visit() MY_NOEXCEPT { destroy_visitor_impl<I>::visit_impl(ptr); }
+      };
+      struct overload_initializer 
+      {
+        local_storage& storage;
+        overload_initializer(local_storage& storage): storage(storage) {}
+        template <std::size_t I, class T>
+        void invoke(const T& val)
+        {
+          try
+          {
+            storage.ptr = new(storage.ptr) T(val);
+            storage.discriminator = I;
+          }
+          catch(...)
+          {
+            storage.discriminator = variant_nops;
+            throw;
+          }
+        }
+      };
+      struct overload_assigner
+      {
+        local_storage& storage;
+        overload_assigner(local_storage& storage): storage(storage) {}
+        template <std::size_t I, class T>
+        void invoke(const T& val)
+        {
+          if (I == storage.discriminator)
+          {
+            *static_cast<T*>(storage.ptr) = val;
+          }
+          else
+          {
+            detail::variant_index_visit<TypeList>(destroy_visitor(storage.ptr), storage.discriminator);
+            try
+            {
+              storage.ptr = new(storage.ptr) T(val);
+              storage.discriminator = I;
+            }
+            catch(...)
+            {
+              storage.discriminator = variant_nops;
+              throw;
+            }
+          }
+        }
+      };
+      template <std::size_t I, class Dummy = void>
+      struct copy_ctor_visitor_impl
+      {
+        typedef typename type_traits::get<TypeList, I>::type T;
+        static void visit_impl(const local_storage& from, local_storage& to)
+        {
+          assert(I == from.discriminator);
+          try
+          {
+            to.ptr = new(to.ptr) T(*from.get_as<T>());
+            to.discriminator = I;
+          }
+          catch(...)
+          {
+            to.discriminator = variant_nops;
+          }
+        }
+      };
+      template <class Dummy>
+      struct copy_ctor_visitor_impl<type_num, Dummy> { static void visit_impl(const local_storage& from, local_storage& to) { to.discriminator = variant_nops; } };
+      struct copy_ctor_visitor
+      {
+        const local_storage& from;
+        local_storage& to;
+        copy_ctor_visitor(const local_storage& from, local_storage& to): from(from), to(to) {}
+        template <std::size_t I>
+        void visit() { copy_ctor_visitor_impl<I>::visit_impl(from , to); }
+      };
+      template <std::size_t I, class Dummy = void>
+      struct copy_assign_visitor_impl
+      {
+        static void visit_impl(const local_storage& from, local_storage& to)
+        {
+          typedef typename type_traits::get<TypeList, I>::type T;
+          assert(I == from.discriminator);
+          if (from.discriminator == to.discriminator)
+          {
+            *to.get_as<T>() = *from.get_as<T>();
+          }
+          else
+          {
+            detail::variant_index_visit<TypeList>((destroy_visitor(to.ptr)), to.discriminator);
+            try
+            {
+              to.ptr = new(to.ptr) T(*from.get_as<T>());
+              to.discriminator = from.discriminator;
+            }
+            catch(...)
+            {
+              to.discriminator = variant_nops;
+            }
+          }
+        }
+      };
+      template <class Dummy>
+      struct copy_assign_visitor_impl<type_num, Dummy>
+      { 
+        static void visit_impl(const local_storage& from, local_storage& to)
+        { 
+          detail::variant_index_visit<TypeList>((destroy_visitor(to.ptr)), to.discriminator);
+          to.discriminator = variant_nops;
+        }
+      };
+      struct copy_assign_visitor
+      {
+        const local_storage& from;
+        local_storage& to;
+        copy_assign_visitor(const local_storage& from, local_storage& to): from(from), to(to) {}
+        template <std::size_t I>
+        void visit() { copy_assign_visitor_impl<I>::visit_impl(from, to); }
       };
 
     public:
       template <class T>
-      local_storage(const T& val)
+      local_storage(const T& val): storage(), ptr(storage.address())
       {
-        ptr = detail::variant_initializer<TypeList>::initialize(val, storage.address(), discriminator);
+        detail::variant_overload_resolve<TypeList>(val, (overload_initializer(*this)));
       }
-      void destory()
+      local_storage(const local_storage& other): storage(), ptr(storage.address())
       {
-        detail::variant_destructor<TypeList>::destory(ptr, discriminator);
+        detail::variant_index_visit<TypeList>((copy_ctor_visitor(other, *this)), other.get_discriminator());
+      }
+      void destroy()
+      {
+        detail::variant_index_visit<TypeList>((destroy_visitor(ptr)), discriminator);
       }
       template <class T>
       void assign(const T& val)
       {
-        ptr = detail::variant_assigner<TypeList>::assign(val, storage.address(), discriminator);
+        detail::variant_overload_resolve<TypeList>(val, (overload_assigner(*this)));
       }
-      std::size_t get_discriminator() const { return discriminator; }
-      void* get_raw_buffer() { return storage.address(); }
-      const void* get_raw_buffer() const { return storage.address(); }
-      template <class T>
-      T* get_as() { return reinterpret_cast<T*>(storage.address()); }
-      template <class T>
-      const T* get_as() const { return reinterpret_cast<const T*>(storage.address()); }
+      local_storage& operator=(const local_storage& other)
+      {
+        detail::variant_index_visit<TypeList>((copy_assign_visitor(other, *this)), other.discriminator);
+        return *this;
+      }
     };
 
     template <class TypeList>
@@ -297,7 +293,7 @@ namespace my {
       dynamic_storage(const T& val);
       template <class T>
       void assign(const T& val);
-      void destory();
+      void destroy();
       std::size_t get_discriminator() const MY_NOEXCEPT { return discriminator; }
       void* get_raw_buffer() MY_NOEXCEPT { return ptr; }
       const void* get_raw_buffer() const MY_NOEXCEPT { return ptr; }
