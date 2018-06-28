@@ -3,6 +3,7 @@
 
 #include <new>
 #include <cassert>
+#include <exception>
 #include "type_list.hpp"
 #include "type_traits.hpp"
 #include "alignment_of.hpp"
@@ -13,7 +14,21 @@
 
 namespace my {
 
+  // forward declaration
+  template <class TypeList, template <class> class Storage>
+  class variant;
+
   const std::size_t variant_nops = -1;
+
+  template <class T>
+  struct in_plaece_type_t {};
+  template <std::size_t I>
+  struct in_plaece_index_t {};
+
+  class bad_variant_access: public std::exception
+  {
+    const char* what() const MY_NOEXCEPT { return "bad_variant_access"; }
+  };
 
   namespace detail
   {
@@ -98,6 +113,33 @@ namespace my {
     struct variant_overload_resolver: variant_overload_resolver_impl<TypeList, Fn, 0> { using variant_overload_resolver_impl<TypeList, Fn, 0>::overload; };
     template <class TypeList, class T, class Fn>
     void variant_overload_resolve(const T& val, Fn fn) { variant_overload_resolver<TypeList, Fn>::overload(val, fn); }
+
+    template <class T, class TypeList, std::size_t I, bool is_last = I == type_traits::length<TypeList>::value>
+    struct is_match_type_index_visitor_impl
+    {
+      typedef typename type_traits::get<TypeList, I>::type U;
+      static bool visit_impl() MY_NOEXCEPT { return type_traits::is_same<T, U>::value; }
+    };
+    template <class T, class TypeList, std::size_t I>
+    struct is_match_type_index_visitor_impl<T, TypeList, I, true>
+    {
+      static bool visit_impl() MY_NOEXCEPT { return false; }
+    };
+    template <class T, class TypeList>
+    struct is_match_type_index_visitor
+    {
+      bool& result;
+      is_match_type_index_visitor(bool& result): result(result) {}
+      template <std::size_t I>
+      void visit() MY_NOEXCEPT { result = is_match_type_index_visitor_impl<T, TypeList, I>::visit_impl(); }
+    };
+    template <class T, class TypeList>
+    bool is_match_type_index(std::size_t d)
+    {
+      bool result = false;
+      variant_index_visit<TypeList>((is_match_type_index_visitor<T, TypeList>(result)), d);
+      return result;
+    }
   }
 
   namespace variant_storage
@@ -458,16 +500,32 @@ namespace my {
     };
   }
 
-  template <class TypeList, template <class> class Storage>
-  class variant {
+  // forward declarations
+  template <std::size_t I, class TypeList, template <class> class Storage>
+  typename type_traits::add_reference<typename type_traits::get<TypeList, I>::type>::type get(variant<TypeList, Storage>& v);
+  template <std::size_t I, class TypeList, template <class> class Storage>
+  typename type_traits::add_reference<typename type_traits::add_const<typename type_traits::get<TypeList, I>::type>::type>::type get(const variant<TypeList, Storage>& v);
+  template <class T, class TypeList, template <class> class Storage>
+  T& get(variant<TypeList, Storage>& v);
+  template <class T, class TypeList, template <class> class Storage>
+  const T& get(const variant<TypeList, Storage>& v);
+
+  template <class TypeList, template <class> class Storage = variant_storage::local_storage>
+  class variant
+  {
+    // friend declarations
+    template <std::size_t I, class TypeList_, template <class> class Storage_>
+    friend typename type_traits::add_reference<typename type_traits::get<TypeList_, I>::type>::type get(variant<TypeList_, Storage_>& v);
+    template <std::size_t I, class TypeList_, template <class> class Storage_>
+    friend typename type_traits::add_reference<typename type_traits::add_const<typename type_traits::get<TypeList_, I>::type>::type>::type get(const variant<TypeList_, Storage_>& v);
+    template <class T, class TypeList_, template <class> class Storage_>
+    friend T& get(variant<TypeList_, Storage_>& v);
+    template <class T, class TypeList_, template <class> class Storage_>
+    friend const T& get(const variant<TypeList_, Storage_>& v);
   private:
     typedef TypeList type_list;
     Storage<TypeList> storage;
     typedef typename type_traits::head<TypeList>::type head_type;
-    template <std::size_t I>
-    typename type_traits::add_reference<typename type_traits::get<TypeList, I>::type>::type get();
-    template <std::size_t I>
-    typename type_traits::add_reference<typename type_traits::add_const<typename type_traits::get<TypeList, I>::type>::type>::type get() const;
   public:
     std::size_t index() const MY_NOEXCEPT { return storage.get_discriminator(); }
     variant(): storage((head_type())) {}
@@ -479,6 +537,34 @@ namespace my {
     template <class T>
     variant& operator=(const T& val) { this->storage = val; }
   };
+
+  template <std::size_t I, class TypeList, template <class> class Storage>
+  typename type_traits::add_reference<typename type_traits::get<TypeList, I>::type>::type get(variant<TypeList, Storage>& v)
+  {
+    typedef typename type_traits::get<TypeList, I>::type T;
+    if (I != v.storage.get_discriminator()) throw bad_variant_access();
+    return *v.storage.template get_as<T>();
+  }
+  template <std::size_t I, class TypeList, template <class> class Storage>
+  typename type_traits::add_reference<typename type_traits::add_const<typename type_traits::get<TypeList, I>::type>::type>::type get(const variant<TypeList, Storage>& v)
+  {
+    typedef typename type_traits::get<TypeList, I>::type T;
+    if (I != v.storage.get_discriminator()) throw bad_variant_access();
+    return *v.storage.template get_as<T>();
+  }
+  template <class T, class TypeList, template <class> class Storage>
+  T& get(variant<TypeList, Storage>& v)
+  {
+    if (!detail::is_match_type_index<T, TypeList>(v.index())) throw bad_variant_access();
+    return *v.storage.template get_as<T>();
+  }
+  template <class T, class TypeList, template <class> class Storage>
+  const T& get(const variant<TypeList, Storage>& v)
+  {
+    if (!detail::is_match_type_index<T, TypeList>(v.index())) throw bad_variant_access();
+    return *v.storage.template get_as<T>();
+  }
+
 }
 
 #endif
