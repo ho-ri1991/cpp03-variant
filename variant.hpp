@@ -111,6 +111,7 @@ namespace my {
       void* ptr;
       std::size_t discriminator;
       enum { is_aligned_for_all = detail::is_aligned_for_all<max_alignment, TypeList>::value };
+      STATIC_ASSERT(is_aligned_for_all == 1, local_storage_alignment_failuer);
       enum { type_num = type_traits::length<TypeList>::value };
     public:
       std::size_t get_discriminator() const { return discriminator; }
@@ -124,20 +125,21 @@ namespace my {
       template <std::size_t I, class Dummy = void>
       struct destroy_visitor_impl
       {
-        static void visit_impl(void* ptr) MY_NOEXCEPT
+        static void visit_impl(local_storage& storage) MY_NOEXCEPT
         {
           typedef typename type_traits::get<TypeList, I>::type T;
-          static_cast<T*>(ptr)->~T();
+          static_cast<T*>(storage.ptr)->~T();
+          storage.discriminator = variant_nops;
         }
       };
       template <class Dummy>
-      struct destroy_visitor_impl<type_num, Dummy> { static void visit_impl(void* ptr) MY_NOEXCEPT {} };
+      struct destroy_visitor_impl<type_num, Dummy> { static void visit_impl(local_storage& storage) MY_NOEXCEPT { storage.discriminator = variant_nops; } };
       struct destroy_visitor
       {
-        void* ptr;
-        destroy_visitor(void* ptr): ptr(ptr) {}
+        local_storage& storage;
+        destroy_visitor(local_storage& storage): storage(storage) {}
         template <std::size_t I>
-        void visit() MY_NOEXCEPT { destroy_visitor_impl<I>::visit_impl(ptr); }
+        void visit() MY_NOEXCEPT { destroy_visitor_impl<I>::visit_impl(storage); }
       };
       struct overload_initializer 
       {
@@ -171,7 +173,7 @@ namespace my {
           }
           else
           {
-            detail::variant_index_visit<TypeList>(destroy_visitor(storage.ptr), storage.discriminator);
+            detail::variant_index_visit<TypeList>(destroy_visitor(storage), storage.discriminator);
             try
             {
               storage.ptr = new(storage.ptr) T(val);
@@ -226,7 +228,7 @@ namespace my {
           }
           else
           {
-            detail::variant_index_visit<TypeList>((destroy_visitor(to.ptr)), to.discriminator);
+            detail::variant_index_visit<TypeList>((destroy_visitor(to)), to.discriminator);
             try
             {
               to.ptr = new(to.ptr) T(*from.get_as<T>());
@@ -244,7 +246,7 @@ namespace my {
       { 
         static void visit_impl(const local_storage& from, local_storage& to)
         { 
-          detail::variant_index_visit<TypeList>((destroy_visitor(to.ptr)), to.discriminator);
+          detail::variant_index_visit<TypeList>((destroy_visitor(to)), to.discriminator);
           to.discriminator = variant_nops;
         }
       };
@@ -269,7 +271,7 @@ namespace my {
       }
       void destroy()
       {
-        detail::variant_index_visit<TypeList>((destroy_visitor(ptr)), discriminator);
+        detail::variant_index_visit<TypeList>((destroy_visitor(*this)), discriminator);
       }
       template <class T>
       void assign(const T& val)
@@ -288,12 +290,8 @@ namespace my {
     {
       void* ptr;
       std::size_t discriminator;
+      enum { type_num = type_traits::length<TypeList>::value };
     public:
-      template <class T>
-      dynamic_storage(const T& val);
-      template <class T>
-      void assign(const T& val);
-      void destroy();
       std::size_t get_discriminator() const MY_NOEXCEPT { return discriminator; }
       void* get_raw_buffer() MY_NOEXCEPT { return ptr; }
       const void* get_raw_buffer() const MY_NOEXCEPT { return ptr; }
@@ -301,6 +299,162 @@ namespace my {
       T* get_as() MY_NOEXCEPT { return reinterpret_cast<T*>(ptr); }
       template <class T>
       const T* get_as() const MY_NOEXCEPT { return reinterpret_cast<const T*>(ptr); }
+    private:
+      template <std::size_t I, class Dummy = void>
+      struct destroy_visitor_impl
+      {
+        static void visit_impl(dynamic_storage& storage) MY_NOEXCEPT
+        {
+          typedef typename type_traits::get<TypeList, I>::type T;
+          delete static_cast<T*>(storage.ptr);
+          storage.ptr = NULL;
+          storage.discriminator = variant_nops;
+        }
+      };
+      template <class Dummy>
+      struct destroy_visitor_impl<type_num, Dummy>
+      {
+        static void visit_impl(dynamic_storage& storage) MY_NOEXCEPT
+        {
+          storage.ptr = NULL;
+          storage.discriminator = variant_nops;
+        }
+      };
+      struct destroy_visitor
+      {
+        dynamic_storage& storage;
+        destroy_visitor(dynamic_storage& storage): storage(storage) {}
+        template <std::size_t I>
+        void visit() MY_NOEXCEPT { destroy_visitor_impl<I>::visit_impl(storage); }
+      };
+      struct overload_initializer 
+      {
+        dynamic_storage& storage;
+        overload_initializer(dynamic_storage& storage): storage(storage) {}
+        template <std::size_t I, class T>
+        void invoke(const T& val)
+        {
+          try
+          {
+            storage.ptr = new T(val);
+            storage.discriminator = I;
+          }
+          catch(...)
+          {
+            storage.ptr = NULL;
+            storage.discriminator = variant_nops;
+            throw;
+          }
+        }
+      };
+      struct overload_assigner
+      {
+        dynamic_storage& storage;
+        overload_assigner(dynamic_storage& storage): storage(storage) {}
+        template <std::size_t I, class T>
+        void invoke(const T& val)
+        {
+          if (I == storage.discriminator)
+          {
+            *static_cast<T*>(storage.ptr) = val;
+          }
+          else
+          {
+            detail::variant_index_visit<TypeList>(destroy_visitor(storage), storage.discriminator);
+            storage.ptr = new(storage.ptr) T(val);
+            storage.discriminator = I;
+          }
+        }
+      };
+      template <std::size_t I, class Dummy = void>
+      struct copy_ctor_visitor_impl
+      {
+        typedef typename type_traits::get<TypeList, I>::type T;
+        static void visit_impl(const dynamic_storage& from, dynamic_storage& to)
+        {
+          assert(I == from.discriminator);
+          try
+          {
+            to.ptr = new T(*from.get_as<T>());
+            to.discriminator = I;
+          }
+          catch(...)
+          {
+            to.ptr = NULL;
+            to.discriminator = variant_nops;
+          }
+        }
+      };
+      template <class Dummy>
+      struct copy_ctor_visitor_impl<type_num, Dummy> { static void visit_impl(const dynamic_storage& from, dynamic_storage& to) { to.discriminator = variant_nops; } };
+      struct copy_ctor_visitor
+      {
+        const dynamic_storage& from;
+        dynamic_storage& to;
+        copy_ctor_visitor(const dynamic_storage& from, dynamic_storage& to): from(from), to(to) {}
+        template <std::size_t I>
+        void visit() { copy_ctor_visitor_impl<I>::visit_impl(from , to); }
+      };
+      template <std::size_t I, class Dummy = void>
+      struct copy_assign_visitor_impl
+      {
+        static void visit_impl(const dynamic_storage& from, dynamic_storage& to)
+        {
+          typedef typename type_traits::get<TypeList, I>::type T;
+          assert(I == from.discriminator);
+          if (from.discriminator == to.discriminator)
+          {
+            *to.get_as<T>() = *from.get_as<T>();
+          }
+          else
+          {
+            detail::variant_index_visit<TypeList>((destroy_visitor(to)), to.discriminator);
+            to.ptr = new T(*from.get_as<T>());
+            to.discriminator = from.discriminator;
+          }
+        }
+      };
+      template <class Dummy>
+      struct copy_assign_visitor_impl<type_num, Dummy>
+      { 
+        static void visit_impl(const dynamic_storage& from, dynamic_storage& to)
+        { 
+          detail::variant_index_visit<TypeList>((destroy_visitor(to)), to.discriminator);
+        }
+      };
+      struct copy_assign_visitor
+      {
+        const dynamic_storage& from;
+        dynamic_storage& to;
+        copy_assign_visitor(const dynamic_storage& from, dynamic_storage& to): from(from), to(to) {}
+        template <std::size_t I>
+        void visit() { copy_assign_visitor_impl<I>::visit_impl(from, to); }
+      };
+
+    public:
+      template <class T>
+      dynamic_storage(const T& val)
+      {
+        detail::variant_overload_resolve<TypeList>(val, (overload_initializer(*this)));
+      }
+      dynamic_storage(const dynamic_storage& other)
+      {
+        detail::variant_index_visit<TypeList>((copy_ctor_visitor(other, *this)), other.get_discriminator());
+      }
+      void destroy()
+      {
+        detail::variant_index_visit<TypeList>((destroy_visitor(*this)), discriminator);
+      }
+      template <class T>
+      void assign(const T& val)
+      {
+        detail::variant_overload_resolve<TypeList>(val, (overload_assigner(*this)));
+      }
+      dynamic_storage& operator=(const dynamic_storage& other)
+      {
+        detail::variant_index_visit<TypeList>((copy_assign_visitor(other, *this)), other.discriminator);
+        return *this;
+      }
     };
   }
 
@@ -317,7 +471,13 @@ namespace my {
   public:
     std::size_t index() const MY_NOEXCEPT { return storage.get_discriminator(); }
     variant(): storage((head_type())) {}
-    variant(const variant& other) {  }
+    variant(const variant& other): storage(other.storage) {}
+    template <class T>
+    variant(const T& val): storage(val) {}
+    ~variant() MY_NOEXCEPT { storage.destroy(); }
+    variant& operator=(const variant& other) { this->storage = other.storage; }
+    template <class T>
+    variant& operator=(const T& val) { this->storage = val; }
   };
 }
 
