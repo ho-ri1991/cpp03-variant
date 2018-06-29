@@ -18,7 +18,9 @@ namespace my {
   template <class TypeList, template <class> class Storage>
   class variant;
 
-  const std::size_t variant_nops = -1;
+  namespace {
+    const std::size_t variant_nops = -1;
+  }
 
   template <class T>
   struct in_place_type_t {};
@@ -77,9 +79,15 @@ namespace my {
       static void visit_by_index(Visitor v, std::size_t d)
       {
         if (I == d)
+        {
           v.template visit<I>();
+          return;
+        }
         else
+        {
           next::visit_by_index(v, d);
+          return;
+        }
       }
     };
     template <class T, class Visitor, std::size_t I>
@@ -88,9 +96,15 @@ namespace my {
       static void visit_by_index(Visitor v, std::size_t d)
       {
         if (I == d)
+        {
           v.template visit<I>();
+          return;
+        }
         else
+        {
           v.template visit<I + 1>();
+          return;
+        }
       }
     };
     template <class TypeList, class Visitor>
@@ -150,19 +164,19 @@ namespace my {
       enum { max_size = detail::max_size_in_type_list<TypeList>::value };
       enum { max_alignment = detail::max_alignment_in_type_list<TypeList>::value };
       type_traits::aligned_storage<max_size, max_alignment> storage;
-      void* ptr;
+      void* ptr; // this is for avoiding UB, std::launder in C++17 is required to remove this.
       std::size_t discriminator;
       enum { is_aligned_for_all = detail::is_aligned_for_all<max_alignment, TypeList>::value };
       STATIC_ASSERT(is_aligned_for_all == 1, local_storage_alignment_failuer);
       enum { type_num = type_traits::length<TypeList>::value };
     public:
       std::size_t get_discriminator() const { return discriminator; }
-      void* get_raw_buffer() { return storage.address(); }
-      const void* get_raw_buffer() const { return storage.address(); }
+      void* get_raw_buffer() { return ptr; }
+      const void* get_raw_buffer() const { return ptr; }
       template <class T>
-      T* get_as() { return reinterpret_cast<T*>(storage.address()); }
+      T* get_as() { return reinterpret_cast<T*>(ptr); }
       template <class T>
-      const T* get_as() const { return reinterpret_cast<const T*>(storage.address()); }
+      const T* get_as() const { return reinterpret_cast<const T*>(ptr); }
     private:
       template <std::size_t I, class Dummy = void>
       struct destroy_visitor_impl
@@ -170,7 +184,7 @@ namespace my {
         static void visit_impl(local_storage& storage) MY_NOEXCEPT
         {
           typedef typename type_traits::get<TypeList, I>::type T;
-          static_cast<T*>(storage.ptr)->~T();
+          storage.get_as<T>()->~T();
           storage.discriminator = variant_nops;
         }
       };
@@ -321,9 +335,10 @@ namespace my {
         detail::variant_index_visit<TypeList>((destroy_visitor(*this)), discriminator);
       }
       template <class T>
-      void assign(const T& val)
+      local_storage& operator=(const T& val)
       {
         detail::variant_overload_resolve<TypeList>(val, (overload_assigner(*this)));
+        return *this;
       }
       local_storage& operator=(const local_storage& other)
       {
@@ -498,9 +513,10 @@ namespace my {
         detail::variant_index_visit<TypeList>((destroy_visitor(*this)), discriminator);
       }
       template <class T>
-      void assign(const T& val)
+      dynamic_storage& operator=(const T& val)
       {
         detail::variant_overload_resolve<TypeList>(val, (overload_assigner(*this)));
+        return *this;
       }
       dynamic_storage& operator=(const dynamic_storage& other)
       {
@@ -551,7 +567,7 @@ namespace my {
     ~variant() MY_NOEXCEPT { storage.destroy(); }
     variant& operator=(const variant& other) { this->storage = other.storage; }
     template <class T>
-    variant& operator=(const T& val) { this->storage = val; }
+    variant& operator=(const T& val) { this->storage = val; return *this; }
   };
 
   template <std::size_t I, class TypeList, template <class> class Storage>
