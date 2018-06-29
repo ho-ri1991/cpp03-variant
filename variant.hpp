@@ -367,6 +367,11 @@ namespace my {
         detail::variant_index_visit<TypeList>((copy_assign_visitor(other, *this)), other.discriminator);
         return *this;
       }
+      template <std::size_t I, class T>
+      void emplace(in_place_index_t<I>, const T& val)
+      {
+        (overload_initializer(*this)).template invoke<I>(val);
+      }
     };
 
     template <class TypeList>
@@ -545,6 +550,11 @@ namespace my {
         detail::variant_index_visit<TypeList>((copy_assign_visitor(other, *this)), other.discriminator);
         return *this;
       }
+      template <std::size_t I, class T>
+      void emplace(in_place_index_t<I>, const T& val)
+      {
+        (overload_initializer(*this)).template invoke<I>(val);
+      }
     };
   }
 
@@ -590,6 +600,12 @@ namespace my {
     variant& operator=(const variant& other) { this->storage = other.storage; }
     template <class T>
     variant& operator=(const T& val) { this->storage = val; return *this; }
+  public:
+    template <std::size_t T, class T>
+    typename type_traits::add_reference< typename variant_alternative<I, variant<TypeList, Storage> >::type>::type emplace(in_place_index_t<I>, const T& val)
+    {
+
+    }
   };
 
   template <std::size_t I, class TypeList, template <class> class Storage>
