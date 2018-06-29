@@ -1,96 +1,60 @@
+#define BOOST_TEST_MAIN
+#include <boost/test/included/unit_test.hpp>
 #include <cassert>
 #include <string>
 #include "variant.hpp"
 
-int main()
+struct CountTest1
 {
-  using namespace my;
-  using namespace type_traits;
+  int i;
+  static int live_count;
+  CountTest1(int i):i(i) { ++live_count; }
+  CountTest1(const CountTest1& other): i(other.i) { ++live_count; }
+  ~CountTest1() { --live_count; }
+};
+int CountTest1::live_count = 0;
+
+struct CountTest2
+{
+  bool i;
+  static int live_count;
+  CountTest2(bool i):i(i) { ++live_count; }
+  CountTest2(const CountTest2& other): i(other.i) { ++live_count; }
+  ~CountTest2() { --live_count; }
+};
+int CountTest2::live_count = 0;
+
+BOOST_AUTO_TEST_SUITE(my_variant)
+BOOST_AUTO_TEST_CASE(my_variant_local_storage) {
+
+  BOOST_CHECK_EQUAL(CountTest1::live_count, 0);
+  BOOST_CHECK_EQUAL(CountTest2::live_count, 0);
+
   {
-    variant_storage::local_storage< MAKE_MY_TYPE_LIST_3(int, bool, double) > s(1);
-    assert(s.get_discriminator() == 0);
-    assert(*s.get_as<int>() == 1);
-    s.assign(2.5);
-    assert(s.get_discriminator() == 2);
-    s.assign(true);
-    assert(s.get_discriminator() == 1);
-    assert(*s.get_as<bool>() == true);
-    s.destroy();
+    my::variant< MAKE_MY_TYPE_LIST_3(int, CountTest1, CountTest2) > var1(42);
+    BOOST_CHECK_EQUAL(var1.index(), 0);
+    BOOST_CHECK_EQUAL(my::get<0>(var1), 42);
+    BOOST_CHECK_EQUAL(my::get<int>(var1), 42);
+    var1 = CountTest1(1);
+    BOOST_CHECK_EQUAL(var1.index(), 1);
+    BOOST_CHECK_EQUAL(my::get<1>(var1).i, 1);
+    BOOST_CHECK_EQUAL(my::get<CountTest1>(var1).i, 1);
+    var1 = CountTest2(true);
+    BOOST_CHECK_EQUAL(var1.index(), 2);
+    BOOST_CHECK_EQUAL(my::get<2>(var1).i, true);
+    BOOST_CHECK_EQUAL(my::get<CountTest2>(var1).i, true);
+    var1 = 1;
+    BOOST_CHECK_EQUAL(var1.index(), 0);
+    BOOST_CHECK_EQUAL(my::get<0>(var1), 1);
+    BOOST_CHECK_EQUAL(my::get<int>(var1), 1);
+    var1 = CountTest2(true);
+    BOOST_CHECK_EQUAL(var1.index(), 2);
+    BOOST_CHECK_EQUAL(my::get<2>(var1).i, true);
+    BOOST_CHECK_EQUAL(my::get<CountTest2>(var1).i, true);
   }
-  {
-    variant_storage::local_storage< MAKE_MY_TYPE_LIST_3(int, bool, double) > s(false);
-    assert(s.get_discriminator() == 1);
-    s.destroy();
-  }
-  {
-    variant_storage::local_storage< MAKE_MY_TYPE_LIST_3(int, bool, double) > s(1.0);
-    assert(s.get_discriminator() == 2);
-    s.destroy();
-  }
-  {
-    variant_storage::local_storage< MAKE_MY_TYPE_LIST_3(int, bool, double) > s1(1.0);
-    assert(s1.get_discriminator() == 2);
-    variant_storage::local_storage< MAKE_MY_TYPE_LIST_3(int, bool, double) > s2(s1);
-    assert(s2.get_discriminator() == s1.get_discriminator());
-    assert(*s1.get_as<double>() == *s2.get_as<double>());
-    variant_storage::local_storage< MAKE_MY_TYPE_LIST_3(int, bool, double) > s3(false);
-    s2 = s3;
-    assert(s2.get_discriminator() == s3.get_discriminator());
-    assert(*s3.get_as<bool>() == *s2.get_as<bool>());
-    s1.destroy();
-    s2.destroy();
-    s3.destroy();
-  }
-  {
-    variant<MAKE_MY_TYPE_LIST_3(int, bool, double), variant_storage::local_storage> var(1);
-    assert(::my::get<0>(var) == 1);
-    assert(::my::get<int>(var) == 1);
-  }
-  {
-    variant<MAKE_MY_TYPE_LIST_3(int, int, bool), variant_storage::local_storage> var((in_place_index_t<0>()), 1);
-    assert(::my::get<0>(var) == 1);
-    assert(::my::get<int>(var) == 1);
-  }
-  {
-    variant<MAKE_MY_TYPE_LIST_3(int, int, bool), variant_storage::local_storage> var((in_place_index_t<1>()), 1);
-    assert(::my::get<1>(var) == 1);
-    assert(::my::get<int>(var) == 1);
-  }
-  {
-    variant<MAKE_MY_TYPE_LIST_2(bool, std::string), variant_storage::local_storage> var("a");
-    assert(::my::get<0>(var) == true);
-    assert(::my::get<bool>(var) == true);
-  }
-  {
-    variant<MAKE_MY_TYPE_LIST_2(bool, std::string), variant_storage::local_storage> var((in_place_type_t<std::string>()), "a");
-    assert(::my::get<1>(var) == "a");
-    assert(::my::get<std::string>(var) == "a");
-  }
-  {
-    variant<MAKE_MY_TYPE_LIST_3(int, bool, double), variant_storage::dynamic_storage> var(1);
-    assert(::my::get<0>(var) == 1);
-    assert(::my::get<int>(var) == 1);
-  }
-  {
-    variant<MAKE_MY_TYPE_LIST_3(int, int, bool), variant_storage::dynamic_storage> var((in_place_index_t<0>()), 1);
-    assert(::my::get<0>(var) == 1);
-    assert(::my::get<int>(var) == 1);
-  }
-  {
-    variant<MAKE_MY_TYPE_LIST_3(int, int, bool), variant_storage::dynamic_storage> var((in_place_index_t<1>()), 1);
-    assert(::my::get<1>(var) == 1);
-    assert(::my::get<int>(var) == 1);
-  }
-  {
-    variant<MAKE_MY_TYPE_LIST_2(bool, std::string), variant_storage::dynamic_storage> var("a");
-    assert(::my::get<0>(var) == true);
-    assert(::my::get<bool>(var) == true);
-  }
-  {
-    variant<MAKE_MY_TYPE_LIST_2(bool, std::string), variant_storage::dynamic_storage> var((in_place_type_t<std::string>()), "a");
-    assert(::my::get<1>(var) == "a");
-    assert(::my::get<std::string>(var) == "a");
-  }
-  return 0;
+  
+  BOOST_CHECK_EQUAL(CountTest1::live_count, 0);
+  BOOST_CHECK_EQUAL(CountTest2::live_count, 0);
 }
+BOOST_AUTO_TEST_SUITE_END()
 
