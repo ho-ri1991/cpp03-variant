@@ -61,6 +61,15 @@ STATIC_ASSERT((
   cv_variant_3_2_alternative_test
 );
 
+template <class T>
+struct int_count_pred: my::type_traits::false_type{};
+template <>
+struct int_count_pred<int>: my::type_traits::true_type{};
+STATIC_ASSERT((
+  my::type_traits::count_if<MAKE_MY_TYPE_LIST_6(int, bool, int, const int, double, int), int_count_pred>::value == 3),
+  count_if_test
+);
+
 struct CountTest1
 {
   int i;

@@ -33,6 +33,16 @@ namespace type_traits {
   template <class TypeList>
   struct get<TypeList, 0> { typedef typename TypeList::head type; };
 
+  template <class TypeList, template <class> class Predicate>
+  struct count_if:
+    integral_constant<
+      std::size_t, 
+      Predicate<typename head<TypeList>::type >::value == 1 ? count_if<typename tail<TypeList>::type, Predicate>::value + 1 : count_if<typename tail<TypeList>::type, Predicate>::value
+    >
+  {};
+  template <class T, template <class> class Predicate>
+  struct count_if<type_list<T, null_type>, Predicate>: integral_constant<std::size_t, Predicate<T>::value == 1 ? 1 : 0> {};
+
 }}
 
 #define MAKE_MY_TYPE_LIST_1(T1) ::my::type_traits::type_list<T1, ::my::type_traits::null_type>
