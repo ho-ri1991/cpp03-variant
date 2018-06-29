@@ -22,6 +22,11 @@ namespace type_traits {
   struct is_same<T, T>: true_type{}; 
 
   template <class T>
+  struct remove_reference { typedef T type; };
+  template <class T>
+  struct remove_reference<T&> { typedef T type; };
+
+  template <class T>
   struct add_reference { typedef T& type; };
   template <class T>
   struct add_reference<T&> { typedef T& type; };
@@ -30,9 +35,11 @@ namespace type_traits {
   struct add_const { typedef const T type; };
   template <class T>
   struct add_const<const T> { typedef const T type; };
+  template <class T>
+  struct add_const<T&> { typedef T& type; };
 
   template <class T>
-  struct add_pointer { typedef T* type; };
+  struct add_pointer { typedef typename remove_reference<T>::type* type; };
 
 }}
 
