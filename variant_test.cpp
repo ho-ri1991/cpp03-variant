@@ -1,5 +1,6 @@
-#include "variant.hpp"
 #include <cassert>
+#include <string>
+#include "variant.hpp"
 
 int main()
 {
@@ -45,5 +46,51 @@ int main()
     assert(::my::get<0>(var) == 1);
     assert(::my::get<int>(var) == 1);
   }
+  {
+    variant<MAKE_MY_TYPE_LIST_3(int, int, bool), variant_storage::local_storage> var((in_place_index_t<0>()), 1);
+    assert(::my::get<0>(var) == 1);
+    assert(::my::get<int>(var) == 1);
+  }
+  {
+    variant<MAKE_MY_TYPE_LIST_3(int, int, bool), variant_storage::local_storage> var((in_place_index_t<1>()), 1);
+    assert(::my::get<1>(var) == 1);
+    assert(::my::get<int>(var) == 1);
+  }
+  {
+    variant<MAKE_MY_TYPE_LIST_2(bool, std::string), variant_storage::local_storage> var("a");
+    assert(::my::get<0>(var) == true);
+    assert(::my::get<bool>(var) == true);
+  }
+  {
+    variant<MAKE_MY_TYPE_LIST_2(bool, std::string), variant_storage::local_storage> var((in_place_type_t<std::string>()), "a");
+    assert(::my::get<1>(var) == "a");
+    assert(::my::get<std::string>(var) == "a");
+  }
+  {
+    variant<MAKE_MY_TYPE_LIST_3(int, bool, double), variant_storage::dynamic_storage> var(1);
+    assert(::my::get<0>(var) == 1);
+    assert(::my::get<int>(var) == 1);
+  }
+  {
+    variant<MAKE_MY_TYPE_LIST_3(int, int, bool), variant_storage::dynamic_storage> var((in_place_index_t<0>()), 1);
+    assert(::my::get<0>(var) == 1);
+    assert(::my::get<int>(var) == 1);
+  }
+  {
+    variant<MAKE_MY_TYPE_LIST_3(int, int, bool), variant_storage::dynamic_storage> var((in_place_index_t<1>()), 1);
+    assert(::my::get<1>(var) == 1);
+    assert(::my::get<int>(var) == 1);
+  }
+  {
+    variant<MAKE_MY_TYPE_LIST_2(bool, std::string), variant_storage::dynamic_storage> var("a");
+    assert(::my::get<0>(var) == true);
+    assert(::my::get<bool>(var) == true);
+  }
+  {
+    variant<MAKE_MY_TYPE_LIST_2(bool, std::string), variant_storage::dynamic_storage> var((in_place_type_t<std::string>()), "a");
+    assert(::my::get<1>(var) == "a");
+    assert(::my::get<std::string>(var) == "a");
+  }
   return 0;
 }
+

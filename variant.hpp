@@ -21,9 +21,9 @@ namespace my {
   const std::size_t variant_nops = -1;
 
   template <class T>
-  struct in_plaece_type_t {};
+  struct in_place_type_t {};
   template <std::size_t I>
-  struct in_plaece_index_t {};
+  struct in_place_index_t {};
 
   class bad_variant_access: public std::exception
   {
@@ -307,6 +307,11 @@ namespace my {
       {
         detail::variant_overload_resolve<TypeList>(val, (overload_initializer(*this)));
       }
+      template <std::size_t I, class T>
+      local_storage(in_place_index_t<I>, const T& val): storage(), ptr(storage.address())
+      {
+        (overload_initializer(*this)).template invoke<I>(val);
+      }
       local_storage(const local_storage& other): storage(), ptr(storage.address())
       {
         detail::variant_index_visit<TypeList>((copy_ctor_visitor(other, *this)), other.get_discriminator());
@@ -479,6 +484,11 @@ namespace my {
       {
         detail::variant_overload_resolve<TypeList>(val, (overload_initializer(*this)));
       }
+      template <std::size_t I, class T>
+      dynamic_storage(in_place_index_t<I>, const T& val)
+      {
+        (overload_initializer(*this)).template invoke<I>(val);
+      }
       dynamic_storage(const dynamic_storage& other)
       {
         detail::variant_index_visit<TypeList>((copy_ctor_visitor(other, *this)), other.get_discriminator());
@@ -528,10 +538,16 @@ namespace my {
     typedef typename type_traits::head<TypeList>::type head_type;
   public:
     std::size_t index() const MY_NOEXCEPT { return storage.get_discriminator(); }
+    bool valueless_by_exception() const MY_NOEXCEPT{ return storage.get_discriminator() == variant_nops; }
+  public:
     variant(): storage((head_type())) {}
     variant(const variant& other): storage(other.storage) {}
     template <class T>
     variant(const T& val): storage(val) {}
+    template <std::size_t I, class T>
+    variant(in_place_index_t<I>, const T& val): storage((in_place_index_t<I>()), val) {}
+    template <class T, class U>
+    variant(in_place_type_t<T>, const U& val): storage((T(val))) {}
     ~variant() MY_NOEXCEPT { storage.destroy(); }
     variant& operator=(const variant& other) { this->storage = other.storage; }
     template <class T>

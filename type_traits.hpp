@@ -4,8 +4,17 @@
 namespace my {
 namespace type_traits {
 
-  struct true_type { enum { value = 1 }; };
-  struct false_type { enum { value = 0 }; };
+  template <class T, T v>
+  struct integral_constant
+  {
+    typedef T value_type;
+    typedef integral_constant<T, v> type;
+    enum { value = v };
+    operator value_type() { return value; }
+  };
+
+  typedef integral_constant<bool, true> true_type;
+  typedef integral_constant<bool, false> false_type;
 
   template <class T, class U>
   struct is_same { enum { value = 0 }; };
@@ -21,6 +30,9 @@ namespace type_traits {
   struct add_const { typedef const T type; };
   template <class T>
   struct add_const<const T> { typedef const T type; };
+
+  template <class T>
+  struct add_pointer { typedef T* type; };
 
 }}
 
