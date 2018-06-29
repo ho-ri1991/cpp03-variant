@@ -23,6 +23,28 @@ namespace my {
   }
 
   template <class T>
+  struct variant_size;
+  template <class T>
+  struct variant_size<const T>: variant_size<T>{};
+  template <class T>
+  struct variant_size<volatile T>: variant_size<T>{};
+  template <class T>
+  struct variant_size<const volatile T>: variant_size<T>{};
+  template <class TypeList, template <class> class Storage>
+  struct variant_size< variant<TypeList, Storage> >: type_traits::length<TypeList>{};
+
+  template <std::size_t I, class T>
+  struct variant_alternative;
+  template <std::size_t I, class T>
+  struct variant_alternative<I, const T>: variant_alternative<I, T>{};
+  template <std::size_t I, class T>
+  struct variant_alternative<I, volatile T>: variant_alternative<I, T>{};
+  template <std::size_t I, class T>
+  struct variant_alternative<I, const volatile T>: variant_alternative<I, T>{};
+  template <std::size_t I, class TypeList, template <class> class Storage>
+  struct variant_alternative<I, variant<TypeList, Storage> > { typedef typename type_traits::get<TypeList, I>::type type; };
+
+  template <class T>
   struct in_place_type_t {};
   template <std::size_t I>
   struct in_place_index_t {};
@@ -528,9 +550,9 @@ namespace my {
 
   // forward declarations
   template <std::size_t I, class TypeList, template <class> class Storage>
-  typename type_traits::add_reference<typename type_traits::get<TypeList, I>::type>::type get(variant<TypeList, Storage>& v);
+  typename type_traits::add_reference< typename variant_alternative<I, variant<TypeList, Storage> >::type>::type get(variant<TypeList, Storage>& v);
   template <std::size_t I, class TypeList, template <class> class Storage>
-  typename type_traits::add_reference<typename type_traits::add_const<typename type_traits::get<TypeList, I>::type>::type>::type get(const variant<TypeList, Storage>& v);
+  typename type_traits::add_reference< typename type_traits::add_const< typename variant_alternative<I, variant<TypeList, Storage> >::type>::type>::type get(const variant<TypeList, Storage>& v);
   template <class T, class TypeList, template <class> class Storage>
   T& get(variant<TypeList, Storage>& v);
   template <class T, class TypeList, template <class> class Storage>
@@ -541,9 +563,9 @@ namespace my {
   {
     // friend declarations
     template <std::size_t I, class TypeList_, template <class> class Storage_>
-    friend typename type_traits::add_reference<typename type_traits::get<TypeList_, I>::type>::type get(variant<TypeList_, Storage_>& v);
+    friend typename type_traits::add_reference< typename variant_alternative<I, variant<TypeList_, Storage_> >::type>::type get(variant<TypeList_, Storage_>& v);
     template <std::size_t I, class TypeList_, template <class> class Storage_>
-    friend typename type_traits::add_reference<typename type_traits::add_const<typename type_traits::get<TypeList_, I>::type>::type>::type get(const variant<TypeList_, Storage_>& v);
+    friend typename type_traits::add_reference<typename type_traits::add_const< typename variant_alternative<I, variant<TypeList, Storage> >::type>::type>::type get(const variant<TypeList_, Storage_>& v);
     template <class T, class TypeList_, template <class> class Storage_>
     friend T& get(variant<TypeList_, Storage_>& v);
     template <class T, class TypeList_, template <class> class Storage_>
@@ -571,14 +593,14 @@ namespace my {
   };
 
   template <std::size_t I, class TypeList, template <class> class Storage>
-  typename type_traits::add_reference<typename type_traits::get<TypeList, I>::type>::type get(variant<TypeList, Storage>& v)
+  typename type_traits::add_reference< typename variant_alternative<I, variant<TypeList, Storage> >::type>::type get(variant<TypeList, Storage>& v)
   {
     typedef typename type_traits::get<TypeList, I>::type T;
     if (I != v.storage.get_discriminator()) throw bad_variant_access();
     return *v.storage.template get_as<T>();
   }
   template <std::size_t I, class TypeList, template <class> class Storage>
-  typename type_traits::add_reference<typename type_traits::add_const<typename type_traits::get<TypeList, I>::type>::type>::type get(const variant<TypeList, Storage>& v)
+  typename type_traits::add_reference<typename type_traits::add_const< typename variant_alternative<I, variant<TypeList, Storage> >::type>::type>::type get(const variant<TypeList, Storage>& v)
   {
     typedef typename type_traits::get<TypeList, I>::type T;
     if (I != v.storage.get_discriminator()) throw bad_variant_access();

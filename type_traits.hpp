@@ -17,9 +17,9 @@ namespace type_traits {
   typedef integral_constant<bool, false> false_type;
 
   template <class T, class U>
-  struct is_same { enum { value = 0 }; };
+  struct is_same: false_type{};
   template <class T>
-  struct is_same<T, T> { enum { value = 1}; };
+  struct is_same<T, T>: true_type{}; 
 
   template <class T>
   struct add_reference { typedef T& type; };

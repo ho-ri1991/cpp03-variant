@@ -3,6 +3,63 @@
 #include <cassert>
 #include <string>
 #include "variant.hpp"
+#include "static_assert.hpp"
+
+STATIC_ASSERT((my::variant_size<my::variant< MAKE_MY_TYPE_LIST_1(int) > >::value == 1), variant_1_size_test);
+STATIC_ASSERT((my::variant_size<my::variant< MAKE_MY_TYPE_LIST_3(int, bool, double) > >::value == 3), variant_3_size_test);
+STATIC_ASSERT((my::variant_size<const my::variant< MAKE_MY_TYPE_LIST_3(int, bool, double) > >::value == 3), const_variant_3_size_test);
+STATIC_ASSERT((my::variant_size<volatile my::variant< MAKE_MY_TYPE_LIST_3(int, bool, double) > >::value == 3), volatile_variant_3_size_test);
+STATIC_ASSERT((my::variant_size<const volatile my::variant< MAKE_MY_TYPE_LIST_3(int, bool, double) > >::value == 3), cv_variant_3_size_test);
+
+STATIC_ASSERT((
+  my::type_traits::is_same<
+    my::variant_alternative<0, my::variant< MAKE_MY_TYPE_LIST_1(int) > >::type,
+    int
+  >::value == 1),
+  variant_1_alternative_test
+);
+STATIC_ASSERT((
+  my::type_traits::is_same<
+    my::variant_alternative<0, my::variant< MAKE_MY_TYPE_LIST_3(int, bool, double) > >::type,
+    int
+  >::value == 1),
+  variant_3_0_alternative_test
+);
+STATIC_ASSERT((
+  my::type_traits::is_same<
+    my::variant_alternative<1, my::variant< MAKE_MY_TYPE_LIST_3(int, bool, double) > >::type,
+    bool
+  >::value == 1),
+  variant_3_1_alternative_test
+);
+STATIC_ASSERT((
+  my::type_traits::is_same<
+    my::variant_alternative<2, my::variant< MAKE_MY_TYPE_LIST_3(int, bool, double) > >::type,
+    double
+  >::value == 1),
+  variant_3_2_alternative_test
+);
+STATIC_ASSERT((
+  my::type_traits::is_same<
+    my::variant_alternative<0, const my::variant< MAKE_MY_TYPE_LIST_3(int, bool, double) > >::type,
+    int
+  >::value == 1),
+  const_variant_3_0_alternative_test
+);
+STATIC_ASSERT((
+  my::type_traits::is_same<
+    my::variant_alternative<1, volatile my::variant< MAKE_MY_TYPE_LIST_3(int, bool, double) > >::type,
+    bool
+  >::value == 1),
+  volatile_variant_3_1_alternative_test
+);
+STATIC_ASSERT((
+  my::type_traits::is_same<
+    my::variant_alternative<2, const volatile my::variant< MAKE_MY_TYPE_LIST_3(int, bool, double) > >::type,
+    double
+  >::value == 1),
+  cv_variant_3_2_alternative_test
+);
 
 struct CountTest1
 {

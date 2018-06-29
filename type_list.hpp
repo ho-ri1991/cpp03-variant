@@ -2,6 +2,7 @@
 #define TYPE_LIST_HPP
 
 #include <cstddef>
+#include "type_traits.hpp"
 
 namespace my {
 namespace type_traits {
@@ -23,21 +24,9 @@ namespace type_traits {
   template <class TypeList>
   struct length;
   template <class Head, class Tail>
-  struct length<type_list<Head, Tail> >
-  {
-    enum
-    {
-      value = length<Tail>::value + 1
-    };
-  };
+  struct length<type_list<Head, Tail> >: integral_constant<std::size_t, length<Tail>::value + 1>{};
   template <class T>
-  struct length<type_list<T, null_type> >
-  {
-    enum
-    {
-      value = 1
-    };
-  };
+  struct length<type_list<T, null_type> >: integral_constant<std::size_t, 1>{};
 
   template <class TypeList, std::size_t I>
   struct get: get<typename tail<TypeList>::type, I - 1> {};
