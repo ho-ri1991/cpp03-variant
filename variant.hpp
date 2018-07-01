@@ -666,7 +666,7 @@ namespace my {
   typename type_traits::add_pointer<T>::type get_if(variant<TypeList, Storage>* v) MY_NOEXCEPT
   {
     STATIC_ASSERT(
-      (type_traits::count_if<TypeList, detail::type_count_pred<T>::template type_count_pred_impl>::value == 1),
+      (type_traits::count<TypeList, T>::value == 1),
       T_must_occur_exactly_onece
     );
     if (v == NULL || !detail::is_match_type_index<T, TypeList>(v->index())) return NULL;
@@ -677,7 +677,7 @@ namespace my {
   typename type_traits::add_pointer< typename type_traits::add_const<T>::type >::type get_if(const variant<TypeList, Storage>* v) MY_NOEXCEPT
   {
     STATIC_ASSERT(
-      (type_traits::count_if<TypeList, detail::type_count_pred<T>::template type_count_pred_impl>::value == 1),
+      (type_traits::count<TypeList, T>::value == 1),
       T_must_occur_exactly_onece
     );
     if (v == NULL || !detail::is_match_type_index<T, TypeList>(v->index())) return NULL;
@@ -713,14 +713,22 @@ namespace my {
   template <class T, class TypeList, template <class> class Storage>
   typename type_traits::add_reference<T>::type get(variant<TypeList, Storage>& v)
   {
-    T* tmp = my::get_if<T>(&v);
+    STATIC_ASSERT(
+      (type_traits::count<TypeList, T>::value == 1),
+      T_must_occur_exactly_onece
+    );
+    typename type_traits::add_pointer<T>::type tmp = my::get_if<T>(&v);
     if (tmp == NULL) throw bad_variant_access();
     return *tmp;
   }
   template <class T, class TypeList, template <class> class Storage>
   typename type_traits::add_reference< typename type_traits::add_const<T>::type >::type get(const variant<TypeList, Storage>& v)
   {
-    const T* tmp = my::get_if<T>(&v);
+    STATIC_ASSERT(
+      (type_traits::count<TypeList, T>::value == 1),
+      T_must_occur_exactly_onece
+    );
+    typename type_traits::add_pointer<typename type_traits::add_pointer<T>::type>::type tmp = my::get_if<T>(&v);
     if (tmp == NULL) throw bad_variant_access();
     return *tmp;
   }
