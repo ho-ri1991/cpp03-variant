@@ -20,6 +20,8 @@ namespace type_traits {
   
   template <class TypeList>
   struct tail { typedef typename TypeList::tail type; };
+  template <class T>
+  struct tail<type_list<T, null_type> > {};
 
   template <class TypeList>
   struct length;
@@ -33,15 +35,50 @@ namespace type_traits {
   template <class TypeList>
   struct get<TypeList, 0> { typedef typename TypeList::head type; };
 
+  namespace detail
+  {
+    template <class TypeList, class T>
+    struct count_impl
+    {
+    private:
+      typedef typename head<TypeList>::type Head;
+      typedef typename tail<TypeList>::type Tail;
+      enum { tail_value = count_impl<Tail, T>::value };
+      enum { head_value = is_same<Head, T>::value };
+    public:
+      enum { value = head_value + tail_value };
+    };
+    template <class T, class U>
+    struct count_impl<type_list<T, null_type>, U>
+    {
+    public:
+      enum { value = is_same<T, U>::value };
+    };
+    
+    template <class TypeList, template <class> class Predicate>
+    struct count_if_impl
+    {
+    private:
+      typedef typename head<TypeList>::type Head;
+      typedef typename tail<TypeList>::type Tail;
+      enum { tail_value = count_if_impl<Tail, Predicate>::value };
+      enum { head_value = Predicate<Head>::value };
+    public:
+      enum { value = head_value + tail_value };
+    };
+    template <class T, template <class> class Predicate>
+    struct count_if_impl<type_list<T, null_type>, Predicate>
+    {
+    public:
+      enum { value = Predicate<T>::value };
+    };
+  }
+
+  template <class TypeList, class T>
+  struct count: integral_constant<std::size_t, detail::count_impl<TypeList, T>::value> {};
+
   template <class TypeList, template <class> class Predicate>
-  struct count_if:
-    integral_constant<
-      std::size_t, 
-      Predicate<typename head<TypeList>::type >::value == 1 ? count_if<typename tail<TypeList>::type, Predicate>::value + 1 : count_if<typename tail<TypeList>::type, Predicate>::value
-    >
-  {};
-  template <class T, template <class> class Predicate>
-  struct count_if<type_list<T, null_type>, Predicate>: integral_constant<std::size_t, Predicate<T>::value == 1 ? 1 : 0> {};
+  struct count_if: integral_constant<std::size_t, detail::count_if_impl<TypeList, Predicate>::value> {};
 
 }}
 

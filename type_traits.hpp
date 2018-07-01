@@ -41,6 +41,16 @@ namespace type_traits {
   template <class T>
   struct add_pointer { typedef typename remove_reference<T>::type* type; };
 
+  template <bool b, class T, class U>
+  struct conditional { typedef T type; };
+  template <class T, class U>
+  struct conditional<false, T, U> { typedef U type; };
+
+  template <bool b, class T = void>
+  struct enable_if { typedef T type; };
+  template <class T>
+  struct enable_if<false, T> {};
+
 }}
 
 #endif
