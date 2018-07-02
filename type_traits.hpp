@@ -3,6 +3,9 @@
 
 namespace my {
 namespace type_traits {
+  
+  template <class T>
+  struct identity { typedef T type; };
 
   template <class T, T v>
   struct integral_constant

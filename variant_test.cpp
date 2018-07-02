@@ -70,6 +70,64 @@ STATIC_ASSERT((
   count_if_test
 );
 
+STATIC_ASSERT(
+    (my::type_traits::find<MAKE_MY_TYPE_LIST_6(int, bool, int, double, float, void*), int>::value == 0),
+    find_1st_test
+);
+STATIC_ASSERT(
+    (my::type_traits::find<MAKE_MY_TYPE_LIST_6(int, bool, int, double, float, void*), bool>::value == 1),
+    find_2nd_test
+);
+STATIC_ASSERT(
+    (my::type_traits::find<MAKE_MY_TYPE_LIST_6(int, bool, int, double, float, void*), double>::value == 3),
+    find_3rd_test
+);
+STATIC_ASSERT(
+    (my::type_traits::find<MAKE_MY_TYPE_LIST_6(int, bool, int, double, float, void*), float>::value == 4),
+    find_4th_test
+);
+STATIC_ASSERT(
+    (my::type_traits::find<MAKE_MY_TYPE_LIST_6(int, bool, int, double, float, void*), void*>::value == 5),
+    find_5th_test
+);
+STATIC_ASSERT(
+    (my::type_traits::find<MAKE_MY_TYPE_LIST_6(int, bool, int, double, float, void*), long>::value == 6),
+    find_non_test
+);
+
+template <class T>
+struct const_find_if_pred: my::type_traits::false_type {};
+template <class T>
+struct const_find_if_pred<const T>: my::type_traits::true_type {};
+STATIC_ASSERT(
+    (my::type_traits::find_if<MAKE_MY_TYPE_LIST_6(const int, bool, int, double, float, void*), const_find_if_pred>::value == 0),
+    find_if_1_test
+);
+STATIC_ASSERT(
+    (my::type_traits::find_if<MAKE_MY_TYPE_LIST_6(int, const bool, int, double, float, void*), const_find_if_pred>::value == 1),
+    find_if_2_test
+);
+STATIC_ASSERT(
+    (my::type_traits::find_if<MAKE_MY_TYPE_LIST_6(int, bool, const int, double, float, void*), const_find_if_pred>::value == 2),
+    find_if_3_test
+);
+STATIC_ASSERT(
+    (my::type_traits::find_if<MAKE_MY_TYPE_LIST_6(int, bool, int, const double, float, void*), const_find_if_pred>::value == 3),
+    find_if_4_test
+);
+STATIC_ASSERT(
+    (my::type_traits::find_if<MAKE_MY_TYPE_LIST_6(int, bool, int, double, const float, void*), const_find_if_pred>::value == 4),
+    find_if_5_test
+);
+STATIC_ASSERT(
+    (my::type_traits::find_if<MAKE_MY_TYPE_LIST_6(int, bool, int, double, float, void* const), const_find_if_pred>::value == 5),
+    find_if_6_test
+);
+STATIC_ASSERT(
+    (my::type_traits::find_if<MAKE_MY_TYPE_LIST_6(int, bool, int, double, float, void*), const_find_if_pred>::value == 6),
+    find_if_non_test
+);
+
 struct CountTest1
 {
   int i;
@@ -140,8 +198,18 @@ BOOST_AUTO_TEST_CASE(my_variant_local_storage) {
     BOOST_CHECK_EQUAL((void*)my::get_if<CountTest2>(&var1), (void*)NULL);
     BOOST_CHECK_EQUAL((void*)my::get_if<0>(&var1), (void*)NULL);
     BOOST_CHECK_EQUAL((void*)my::get_if<2>(&var1), (void*)NULL);
+    
+    my::variant< MAKE_MY_TYPE_LIST_3(int, CountTest1, CountTest2) > var2((my::in_place_type_t<CountTest1>()), 42);
+    BOOST_CHECK_EQUAL(var2.index(), 1);
+    BOOST_CHECK_EQUAL(my::get<1>(var2).i, 42);
+    BOOST_CHECK_EQUAL(my::get<CountTest1>(var2).i, 42);
+    BOOST_CHECK_EQUAL(my::get_if<1>(&var2)->i, 42);
+    BOOST_CHECK_EQUAL(my::get_if<CountTest1>(&var2)->i, 42);
+    BOOST_CHECK_EQUAL((void*)my::get_if<CountTest2>(&var2), (void*)NULL);
+    BOOST_CHECK_EQUAL((void*)my::get_if<0>(&var2), (void*)NULL);
+    BOOST_CHECK_EQUAL((void*)my::get_if<2>(&var2), (void*)NULL);
   }
-  
+
   BOOST_CHECK_EQUAL(CountTest2::live_count, 0);
   BOOST_CHECK_EQUAL(CountTest1::live_count, 0);
 }

@@ -72,6 +72,40 @@ namespace type_traits {
     public:
       enum { value = Predicate<T>::value };
     };
+
+    template <class TypeList, class T, std::size_t I>
+    struct find_impl
+    {
+    private:
+      typedef typename head<TypeList>::type Head;
+      typedef typename tail<TypeList>::type Tail;
+      typedef find_impl<Tail, T, I + 1> Next;
+      typedef conditional<is_same<Head, T>::value == 1, integral_constant<std::size_t, I>, Next> Result;
+    public:
+      enum { value = Result::type::value };
+    };
+    template <class T, class U, std::size_t I>
+    struct find_impl<type_list<T, null_type>, U, I>
+    {
+      enum { value = is_same<T, U>::value == 1 ? I : I + 1 };
+    };
+
+    template <class TypeList, template <class> class Predicate, std::size_t I>
+    struct find_if_impl
+    {
+    private:
+      typedef typename head<TypeList>::type Head;
+      typedef typename tail<TypeList>::type Tail;
+      typedef find_if_impl<Tail, Predicate, I + 1> Next;
+      typedef conditional<Predicate<Head>::value == 1, integral_constant<std::size_t, I>, Next> Result;
+    public:
+      enum { value = Result::type::value };
+    };
+    template <class T, template <class> class Predicate, std::size_t I>
+    struct find_if_impl<type_list<T, null_type>, Predicate, I>
+    {
+      enum { value = Predicate<T>::value == 1 ? I : I + 1 };
+    };
   }
 
   template <class TypeList, class T>
@@ -79,6 +113,12 @@ namespace type_traits {
 
   template <class TypeList, template <class> class Predicate>
   struct count_if: integral_constant<std::size_t, detail::count_if_impl<TypeList, Predicate>::value> {};
+
+  template <class TypeList, class T>
+  struct find: integral_constant<std::size_t, detail::find_impl<TypeList, T, 0>::value> {};
+
+  template <class TypeList, template <class> class Predicate>
+  struct find_if: integral_constant<std::size_t, detail::find_if_impl<TypeList, Predicate, 0>::value> {};
 
 }}
 

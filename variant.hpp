@@ -348,16 +348,25 @@ namespace my {
 
     public:
       template <class T>
-      local_storage(const T& val): storage(), ptr(storage.address())
+      local_storage(const T& val): storage(), ptr(storage.address()), discriminator(variant_nops)
       {
         detail::variant_overload_resolve<TypeList>(val, (overload_initializer(*this)));
       }
       template <std::size_t I, class T>
-      local_storage(in_place_index_t<I>, const T& val): storage(), ptr(storage.address())
+      local_storage(in_place_index_t<I>, const T& val): storage(), ptr(storage.address()), discriminator(variant_nops)
       {
         (overload_initializer(*this)).template invoke<I>(val);
       }
-      local_storage(const local_storage& other): storage(), ptr(storage.address())
+      template <class T, class U>
+      local_storage(in_place_type_t<T>, const U& val): storage(), ptr(storage.address()), discriminator(variant_nops)
+      {
+        STATIC_ASSERT(
+          (type_traits::count<TypeList, T>::value == 1),
+          T_must_occur_exactly_onece
+        );
+        (overload_initializer(*this)).template invoke<type_traits::find<TypeList, T>::value>(val);
+      }
+      local_storage(const local_storage& other): storage(), ptr(storage.address()), discriminator(variant_nops)
       {
         detail::variant_index_visit<TypeList>((copy_ctor_visitor(other, *this)), other.get_discriminator());
       }
@@ -533,16 +542,25 @@ namespace my {
 
     public:
       template <class T>
-      dynamic_storage(const T& val)
+      dynamic_storage(const T& val): ptr(NULL), discriminator(variant_nops)
       {
         detail::variant_overload_resolve<TypeList>(val, (overload_initializer(*this)));
       }
       template <std::size_t I, class T>
-      dynamic_storage(in_place_index_t<I>, const T& val)
+      dynamic_storage(in_place_index_t<I>, const T& val): ptr(NULL), discriminator(variant_nops)
       {
         (overload_initializer(*this)).template invoke<I>(val);
       }
-      dynamic_storage(const dynamic_storage& other)
+      template <class T, class U>
+      dynamic_storage(in_place_type_t<T>, const U& val): ptr(NULL), discriminator(variant_nops)
+      {
+        STATIC_ASSERT(
+          (type_traits::count<TypeList, T>::value == 1),
+          T_must_occur_exactly_onece
+        );
+        (overload_initializer(*this)).template invoke<type_traits::find<TypeList, T>::value>(val);
+      }
+      dynamic_storage(const dynamic_storage& other): ptr(NULL), discriminator(variant_nops)
       {
         detail::variant_index_visit<TypeList>((copy_ctor_visitor(other, *this)), other.get_discriminator());
       }
@@ -629,7 +647,7 @@ namespace my {
     template <std::size_t I, class T>
     variant(in_place_index_t<I>, const T& val): storage((in_place_index_t<I>()), val) {}
     template <class T, class U>
-    variant(in_place_type_t<T>, const U& val): storage((T(val))) {}
+    variant(in_place_type_t<T>, const U& val): storage((in_place_type_t<T>()), val) {}
     ~variant() MY_NOEXCEPT { storage.destroy(); }
     variant& operator=(const variant& other) { this->storage = other.storage; }
     template <class T>
