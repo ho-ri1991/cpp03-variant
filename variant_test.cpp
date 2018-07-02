@@ -102,34 +102,48 @@ BOOST_AUTO_TEST_CASE(my_variant_local_storage) {
     BOOST_CHECK_EQUAL(my::get<0>(var1), 42);
     BOOST_CHECK_EQUAL(my::get<int>(var1), 42);
     BOOST_CHECK_EQUAL(*my::get_if<0>(&var1), 42);
-//    BOOST_CHECK_EQUAL(*my::get_if<int>(var1), 42);
+    BOOST_CHECK_EQUAL(*my::get_if<int>(&var1), 42);
     BOOST_CHECK_EQUAL((void*)my::get_if<1>(&var1), (void*)NULL);
     BOOST_CHECK_EQUAL((void*)my::get_if<2>(&var1), (void*)NULL);
+
     var1 = CountTest1(1);
     BOOST_CHECK_EQUAL(var1.index(), 1);
     BOOST_CHECK_EQUAL(my::get<1>(var1).i, 1);
     BOOST_CHECK_EQUAL(my::get<CountTest1>(var1).i, 1);
     BOOST_CHECK_EQUAL(my::get_if<1>(&var1)->i, 1);
-//    BOOST_CHECK_EQUAL(my::get_if<CountTest1>(var1)->i, 42);
-//    BOOST_CHECK_EQUAL(my::get_if<CountTest2>(var1), NULL);
+    BOOST_CHECK_EQUAL(my::get_if<CountTest1>(&var1)->i, 1);
+    BOOST_CHECK_EQUAL((void*)my::get_if<CountTest2>(&var1), (void*)NULL);
     BOOST_CHECK_EQUAL((void*)my::get_if<0>(&var1), (void*)NULL);
     BOOST_CHECK_EQUAL((void*)my::get_if<2>(&var1), (void*)NULL);
+
     var1 = CountTest2(true);
     BOOST_CHECK_EQUAL(var1.index(), 2);
     BOOST_CHECK_EQUAL(my::get<2>(var1).i, true);
     BOOST_CHECK_EQUAL(my::get<CountTest2>(var1).i, true);
+
     var1 = 1;
     BOOST_CHECK_EQUAL(var1.index(), 0);
     BOOST_CHECK_EQUAL(my::get<0>(var1), 1);
     BOOST_CHECK_EQUAL(my::get<int>(var1), 1);
+    
     var1 = CountTest2(true);
     BOOST_CHECK_EQUAL(var1.index(), 2);
     BOOST_CHECK_EQUAL(my::get<2>(var1).i, true);
     BOOST_CHECK_EQUAL(my::get<CountTest2>(var1).i, true);
+
+    var1.emplace((my::in_place_index_t<1>()), 42);
+    BOOST_CHECK_EQUAL(var1.index(), 1);
+    BOOST_CHECK_EQUAL(my::get<1>(var1).i, 42);
+    BOOST_CHECK_EQUAL(my::get<CountTest1>(var1).i, 42);
+    BOOST_CHECK_EQUAL(my::get_if<1>(&var1)->i, 42);
+    BOOST_CHECK_EQUAL(my::get_if<CountTest1>(&var1)->i, 42);
+    BOOST_CHECK_EQUAL((void*)my::get_if<CountTest2>(&var1), (void*)NULL);
+    BOOST_CHECK_EQUAL((void*)my::get_if<0>(&var1), (void*)NULL);
+    BOOST_CHECK_EQUAL((void*)my::get_if<2>(&var1), (void*)NULL);
   }
   
-  BOOST_CHECK_EQUAL(CountTest1::live_count, 0);
   BOOST_CHECK_EQUAL(CountTest2::live_count, 0);
+  BOOST_CHECK_EQUAL(CountTest1::live_count, 0);
 }
 BOOST_AUTO_TEST_SUITE_END()
 

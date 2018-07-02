@@ -233,9 +233,10 @@ namespace my {
         template <std::size_t I, class T>
         void invoke(const T& val)
         {
+          typedef typename type_traits::get<TypeList, I>::type U;
           try
           {
-            storage.ptr = new(storage.ptr) T(val);
+            storage.ptr = new(storage.ptr) U(val);
             storage.discriminator = I;
           }
           catch(...)
@@ -252,16 +253,17 @@ namespace my {
         template <std::size_t I, class T>
         void invoke(const T& val)
         {
+          typedef typename type_traits::get<TypeList, I>::type U;
           if (I == storage.discriminator)
           {
-            *static_cast<T*>(storage.ptr) = val;
+            *static_cast<U*>(storage.ptr) = val;
           }
           else
           {
             detail::variant_index_visit<TypeList>(destroy_visitor(storage), storage.discriminator);
             try
             {
-              storage.ptr = new(storage.ptr) T(val);
+              storage.ptr = new(storage.ptr) U(val);
               storage.discriminator = I;
             }
             catch(...)
@@ -377,7 +379,7 @@ namespace my {
       template <std::size_t I, class T>
       void emplace(in_place_index_t<I>, const T& val)
       {
-        (overload_initializer(*this)).template invoke<I>(val);
+        (overload_assigner(*this)).template invoke<I>(val);
       }
     };
 
@@ -430,9 +432,10 @@ namespace my {
         template <std::size_t I, class T>
         void invoke(const T& val)
         {
+          typedef typename type_traits::get<TypeList, I>::type U;
           try
           {
-            storage.ptr = new T(val);
+            storage.ptr = new U(val);
             storage.discriminator = I;
           }
           catch(...)
@@ -450,14 +453,15 @@ namespace my {
         template <std::size_t I, class T>
         void invoke(const T& val)
         {
+          typedef typename type_traits::get<TypeList, I>::type U;
           if (I == storage.discriminator)
           {
-            *static_cast<T*>(storage.ptr) = val;
+            *static_cast<U*>(storage.ptr) = val;
           }
           else
           {
             detail::variant_index_visit<TypeList>(destroy_visitor(storage), storage.discriminator);
-            storage.ptr = new(storage.ptr) T(val);
+            storage.ptr = new(storage.ptr) U(val);
             storage.discriminator = I;
           }
         }
@@ -560,7 +564,7 @@ namespace my {
       template <std::size_t I, class T>
       void emplace(in_place_index_t<I>, const T& val)
       {
-        (overload_initializer(*this)).template invoke<I>(val);
+        (overload_assigner(*this)).template invoke<I>(val);
       }
     };
   }
@@ -634,8 +638,12 @@ namespace my {
     template <std::size_t I, class T>
     typename type_traits::add_reference< typename variant_alternative<I, variant<TypeList, Storage> >::type>::type emplace(in_place_index_t<I>, const T& val)
     {
-
+      typedef typename variant_alternative<I, variant<TypeList, Storage> >::type result_type;
+      storage.emplace((in_place_index_t<I>()), val);
+      return *storage.template get_as<result_type>();
     }
+    template <class T, class U>
+    T& emplace(const U& val);
   };
 
   template <std::size_t I, class TypeList, template <class> class Storage>
