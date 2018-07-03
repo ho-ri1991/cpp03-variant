@@ -148,6 +148,14 @@ struct CountTest2
 };
 int CountTest2::live_count = 0;
 
+struct visitor1
+{
+  typedef int result_type;
+  result_type operator()(int i) { return i; }
+  result_type operator()(CountTest1 c1) { return c1.i; }
+  result_type operator()(CountTest2 c2) { return c2.i; }
+};
+
 BOOST_AUTO_TEST_SUITE(my_variant)
 BOOST_AUTO_TEST_CASE(my_variant_local_storage) {
 
@@ -189,7 +197,7 @@ BOOST_AUTO_TEST_CASE(my_variant_local_storage) {
     BOOST_CHECK_EQUAL(my::get<2>(var1).i, true);
     BOOST_CHECK_EQUAL(my::get<CountTest2>(var1).i, true);
 
-    var1.emplace((my::in_place_index_t<1>()), 42);
+    var1.emplace<1>(42);
     BOOST_CHECK_EQUAL(var1.index(), 1);
     BOOST_CHECK_EQUAL(my::get<1>(var1).i, 42);
     BOOST_CHECK_EQUAL(my::get<CountTest1>(var1).i, 42);
@@ -198,6 +206,21 @@ BOOST_AUTO_TEST_CASE(my_variant_local_storage) {
     BOOST_CHECK_EQUAL((void*)my::get_if<CountTest2>(&var1), (void*)NULL);
     BOOST_CHECK_EQUAL((void*)my::get_if<0>(&var1), (void*)NULL);
     BOOST_CHECK_EQUAL((void*)my::get_if<2>(&var1), (void*)NULL);
+    
+    var1.emplace<CountTest1>(-1);
+    BOOST_CHECK_EQUAL(var1.index(), 1);
+    BOOST_CHECK_EQUAL(my::get<1>(var1).i, -1);
+    BOOST_CHECK_EQUAL(my::get<CountTest1>(var1).i, -1);
+    BOOST_CHECK_EQUAL(my::get_if<1>(&var1)->i, -1);
+    BOOST_CHECK_EQUAL(my::get_if<CountTest1>(&var1)->i, -1);
+    BOOST_CHECK_EQUAL((void*)my::get_if<CountTest2>(&var1), (void*)NULL);
+    BOOST_CHECK_EQUAL((void*)my::get_if<0>(&var1), (void*)NULL);
+    BOOST_CHECK_EQUAL((void*)my::get_if<2>(&var1), (void*)NULL);
+
+    var1.emplace<CountTest2>(1);
+    BOOST_CHECK_EQUAL(var1.index(), 2);
+    BOOST_CHECK_EQUAL(my::get<2>(var1).i, true);
+    BOOST_CHECK_EQUAL(my::get<CountTest2>(var1).i, true);
     
     my::variant< MAKE_MY_TYPE_LIST_3(int, CountTest1, CountTest2) > var2((my::in_place_type_t<CountTest1>()), 42);
     BOOST_CHECK_EQUAL(var2.index(), 1);
@@ -208,10 +231,30 @@ BOOST_AUTO_TEST_CASE(my_variant_local_storage) {
     BOOST_CHECK_EQUAL((void*)my::get_if<CountTest2>(&var2), (void*)NULL);
     BOOST_CHECK_EQUAL((void*)my::get_if<0>(&var2), (void*)NULL);
     BOOST_CHECK_EQUAL((void*)my::get_if<2>(&var2), (void*)NULL);
+
+    swap(var1, var2);
+    BOOST_CHECK_EQUAL(var1.index(), 1);
+    BOOST_CHECK_EQUAL(my::get<1>(var1).i, 42);
+    BOOST_CHECK_EQUAL(my::get<CountTest1>(var1).i, 42);
+    BOOST_CHECK_EQUAL(my::get_if<1>(&var1)->i, 42);
+    BOOST_CHECK_EQUAL(my::get_if<CountTest1>(&var1)->i, 42);
+    BOOST_CHECK_EQUAL((void*)my::get_if<CountTest2>(&var1), (void*)NULL);
+    BOOST_CHECK_EQUAL((void*)my::get_if<0>(&var1), (void*)NULL);
+    BOOST_CHECK_EQUAL((void*)my::get_if<2>(&var1), (void*)NULL);
+    BOOST_CHECK_EQUAL(var2.index(), 2);
+    BOOST_CHECK_EQUAL(my::get<2>(var2).i, true);
+    BOOST_CHECK_EQUAL(my::get<CountTest2>(var2).i, true);
+
+    BOOST_CHECK(!my::holds_alternative<int>(var1));
+    BOOST_CHECK(my::holds_alternative<CountTest1>(var1));
+    BOOST_CHECK(!my::holds_alternative<CountTest2>(var1));
+
+    BOOST_CHECK_EQUAL(my::visit((visitor1()), var1), 42);
+    BOOST_CHECK_EQUAL(my::visit((visitor1()), var2), 1);
   }
 
-  BOOST_CHECK_EQUAL(CountTest2::live_count, 0);
   BOOST_CHECK_EQUAL(CountTest1::live_count, 0);
+  BOOST_CHECK_EQUAL(CountTest2::live_count, 0);
 }
 BOOST_AUTO_TEST_SUITE_END()
 

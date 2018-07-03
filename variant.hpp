@@ -2,6 +2,7 @@
 #define VARIANT_HPP
 
 #include <new>
+#include <utility>
 #include <cassert>
 #include <exception>
 #include "type_list.hpp"
@@ -374,6 +375,7 @@ namespace my {
       {
         detail::variant_index_visit<TypeList>((destroy_visitor(*this)), discriminator);
       }
+      ~local_storage() MY_NOEXCEPT { this->destroy(); }
       template <class T>
       local_storage& operator=(const T& val)
       {
@@ -386,9 +388,65 @@ namespace my {
         return *this;
       }
       template <std::size_t I, class T>
-      void emplace(in_place_index_t<I>, const T& val)
+      void emplace(const T& val)
       {
         (overload_assigner(*this)).template invoke<I>(val);
+      }
+      template <class T, class U>
+      void emplace(const U& val)
+      {
+        STATIC_ASSERT(
+          (type_traits::count<TypeList, T>::value == 1),
+          T_must_occur_exactly_onece
+        );
+        (overload_assigner(*this)).template invoke<type_traits::find<TypeList, T>::value>(val);
+      }
+    private:
+      template <std::size_t I, class Dummy = void>
+      struct swap_visitor_impl
+      {
+        static void visit_impl(local_storage& this_, local_storage& other_)
+        {
+          assert(I == this_.discriminator);
+          if (this_.discriminator == other_.discriminator)
+          {
+            typedef typename type_traits::get<TypeList, I>::type this_type;
+            using std::swap;
+            swap(*this_.get_as<this_type>(), *other_.get_as<this_type>());
+          }
+          else
+          {
+            local_storage tmp = this_;
+            this_ = other_;
+            other_ = tmp;
+          }
+        }
+      };
+      template <class Dummy>
+      struct swap_visitor_impl<type_num, Dummy>
+      {
+        static void visit_impl(local_storage& this_, local_storage& other_)
+        {
+          assert(variant_nops == this_.discriminator);
+          if (this_.discriminator != other_.discriminator)
+          { // this_ is value_less but other_ has value
+            this_ = other_;
+            other_.destroy();
+          }
+        }
+      };
+      struct swap_visitor
+      {
+        local_storage& this_;
+        local_storage& other_;
+        swap_visitor(local_storage& this_, local_storage& other_): this_(this_), other_(other_) {}
+        template <std::size_t I>
+        void visit() { swap_visitor_impl<I>::visit_impl(this_, other_); }
+      };
+    public:
+      void swap(local_storage& other)
+      {
+        detail::variant_index_visit<TypeList>((swap_visitor(*this, other)), this->discriminator);
       }
     };
 
@@ -568,6 +626,7 @@ namespace my {
       {
         detail::variant_index_visit<TypeList>((destroy_visitor(*this)), discriminator);
       }
+      ~dynamic_storage() MY_NOEXCEPT { this->destroy(); }
       template <class T>
       dynamic_storage& operator=(const T& val)
       {
@@ -580,9 +639,24 @@ namespace my {
         return *this;
       }
       template <std::size_t I, class T>
-      void emplace(in_place_index_t<I>, const T& val)
+      void emplace(const T& val)
       {
         (overload_assigner(*this)).template invoke<I>(val);
+      }
+      template <class T, class U>
+      void emplace(const U& val)
+      {
+        STATIC_ASSERT(
+          (type_traits::count<TypeList, T>::value == 1),
+          T_must_occur_exactly_onece
+        );
+        (overload_assigner(*this)).template invoke<type_traits::find<TypeList, T>::value>(val);
+      }
+      void swap(dynamic_storage& other) MY_NOEXCEPT
+      {
+        using std::swap;
+        swap(this->ptr, other.ptr);
+        swap(this->discriminator, other.discriminator);
       }
     };
   }
@@ -648,20 +722,27 @@ namespace my {
     variant(in_place_index_t<I>, const T& val): storage((in_place_index_t<I>()), val) {}
     template <class T, class U>
     variant(in_place_type_t<T>, const U& val): storage((in_place_type_t<T>()), val) {}
-    ~variant() MY_NOEXCEPT { storage.destroy(); }
-    variant& operator=(const variant& other) { this->storage = other.storage; }
+    variant& operator=(const variant& other) { this->storage = other.storage; return *this; }
     template <class T>
     variant& operator=(const T& val) { this->storage = val; return *this; }
   public:
     template <std::size_t I, class T>
-    typename type_traits::add_reference< typename variant_alternative<I, variant<TypeList, Storage> >::type>::type emplace(in_place_index_t<I>, const T& val)
+    typename type_traits::add_reference< typename variant_alternative<I, variant<TypeList, Storage> >::type>::type emplace(const T& val)
     {
       typedef typename variant_alternative<I, variant<TypeList, Storage> >::type result_type;
-      storage.emplace((in_place_index_t<I>()), val);
+      storage.template emplace<I>(val);
       return *storage.template get_as<result_type>();
     }
     template <class T, class U>
-    T& emplace(const U& val);
+    T& emplace(const U& val)
+    {
+      storage.template emplace<T>(val);
+      return *storage.template get_as<T>();
+    }
+    void swap(variant& other)
+    {
+      this->storage.swap(other.storage);
+    }
   };
 
   template <std::size_t I, class TypeList, template <class> class Storage>
@@ -759,6 +840,65 @@ namespace my {
     return *tmp;
   }
 
+  template <class TypeList, template <class> class Storage>
+  void swap(variant<TypeList, Storage>& v1, variant<TypeList, Storage>& v2) { v1.swap(v2); }
+
+  template <class T, class TypeList, template <class> class Storage>
+  bool holds_alternative(const variant<TypeList, Storage>& v) MY_NOEXCEPT
+  {
+    STATIC_ASSERT(
+      (type_traits::count<TypeList, T>::value == 1),
+      T_must_occur_exactly_onece
+    );
+    return type_traits::find<TypeList, T>::value == v.index();
+  }
+
+
+  namespace detail
+  {
+    template <class Visitor, class TypeList, template <class> class Storage>
+    struct variant_visitor
+    {
+      typedef typename Visitor::result_type result_type;
+      template <std::size_t I, class Dummy = void>
+      struct variant_visitor_impl
+      {
+        static result_type visit(Visitor vis, variant<TypeList, Storage>& var)
+        {
+          if (I == var.index())
+            return vis(my::get<I>(var));
+          else
+            return variant_visitor_impl<I + 1>::visit(vis, var);
+        }
+        static result_type visit(Visitor vis, const variant<TypeList, Storage>& var)
+        {
+          if (I == var.index())
+            return vis(my::get<I>(var));
+          else
+            return variant_visitor_impl<I + 1>::visit(vis, var);
+        }
+      };
+      template <class Dummy>
+      struct variant_visitor_impl<variant_size<variant<TypeList, Storage> >::value, Dummy>
+      {
+        static result_type visit(Visitor vis, const variant<TypeList, Storage>& var) { throw bad_variant_access(); }
+      };
+
+      static result_type visit(Visitor vis, variant<TypeList, Storage>& var) { return variant_visitor_impl<0>::visit(vis, var); }
+      static result_type visit(Visitor vis, const variant<TypeList, Storage>& var) { return variant_visitor_impl<0>::visit(vis, var); }
+    };
+  }
+
+  template <class Visitor, class TypeList, template <class> class Storage>
+  typename Visitor::result_type visit(Visitor vis, variant<TypeList, Storage>& var)
+  {
+    return detail::variant_visitor<Visitor, TypeList, Storage>::visit(vis, var);
+  }
+  template <class Visitor, class TypeList, template <class> class Storage>
+  typename Visitor::result_type visit(Visitor vis, const variant<TypeList, Storage>& var)
+  {
+    return detail::variant_visitor<Visitor, TypeList, Storage>::visit(vis, var);
+  }
 }
 
 #endif
