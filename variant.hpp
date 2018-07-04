@@ -899,6 +899,209 @@ namespace my {
   {
     return detail::variant_visitor<Visitor, TypeList, Storage>::visit(vis, var);
   }
+
+  namespace detail
+  {
+    template <class TypeList, template <class> class Storage>
+    struct variant_relational_operators
+    {
+      typedef variant<TypeList, Storage> my_variant;
+      enum { type_num = variant_size<my_variant>::value };
+
+      template <std::size_t I, class Dummy = void>
+      struct equal_index_visitor_impl
+      {
+        static bool visit_impl(const my_variant& v1, const my_variant& v2)
+        {
+          assert(I == v1.index());
+          if (v1.index() == v2.index()) return my::get<I>(v1) == my::get<I>(v2);
+          else return false;
+        }
+      };
+      template <class Dummy>
+      struct equal_index_visitor_impl<type_num, Dummy>
+      {
+        static bool visit_impl(const my_variant& v1, const my_variant& v2)
+        {
+          assert(v1.valueless_by_exception());
+          return true;
+        }
+      };
+      struct equal_index_visitor
+      {
+        const my_variant& v1;
+        const my_variant& v2;
+        bool& result;
+        equal_index_visitor(const my_variant& v1, const my_variant& v2, bool& result): v1(v1), v2(v2), result(result) {}
+        template <std::size_t I>
+        void visit() { result = equal_index_visitor_impl<I>::visit_impl(v1, v2); }
+      };
+
+      template <std::size_t I, class Dummy = void>
+      struct less_index_visitor_impl
+      {
+        static bool visit_impl(const my_variant& v, const my_variant& w)
+        {
+          assert(I == v.index());
+          if (w.valueless_by_exception()) return false;
+          if (v.index() != w.index()) return v.index() < w.index();
+          return my::get<I>(v) < my::get<I>(w);
+        }
+      };
+      template <class Dummy>
+      struct less_index_visitor_impl<type_num, Dummy>
+      {
+        static bool visit_impl(const my_variant& v, const my_variant& w)
+        {
+          assert(v.valueless_by_exception());
+          return true;
+        }
+      };
+      struct less_index_visitor
+      {
+        const my_variant& v1;
+        const my_variant& v2;
+        bool& result;
+        less_index_visitor(const my_variant& v1, const my_variant& v2, bool& result): v1(v1), v2(v2), result(result) {}
+        template <std::size_t I>
+        void visit() { result = less_index_visitor_impl<I>::visit_impl(v1, v2); }
+      };
+
+      template <std::size_t I, class Dummy = void>
+      struct greater_index_visitor_impl
+      {
+        static bool visit_impl(const my_variant& v, const my_variant& w)
+        {
+          assert(I == v.index());
+          if (w.valueless_by_exception()) return true;
+          if (v.index() != w.index()) return v.index() > w.index();
+          return my::get<I>(v) > my::get<I>(w);
+        }
+      };
+      template <class Dummy>
+      struct greater_index_visitor_impl<type_num, Dummy>
+      {
+        static bool visit_impl(const my_variant& v, const my_variant& w)
+        {
+          assert(v.valueless_by_exception());
+          return false;
+        }
+      };
+      struct greater_index_visitor
+      {
+        const my_variant& v1;
+        const my_variant& v2;
+        bool& result;
+        greater_index_visitor(const my_variant& v1, const my_variant& v2, bool& result): v1(v1), v2(v2), result(result) {}
+        template <std::size_t I>
+        void visit() { result = greater_index_visitor_impl<I>::visit_impl(v1, v2); }
+      };
+
+      template <std::size_t I, class Dummy = void>
+      struct less_eq_index_visitor_impl
+      {
+        static bool visit_impl(const my_variant& v, const my_variant& w)
+        {
+          assert(I == v.index());
+          if (w.valueless_by_exception()) return false;
+          if (v.index() != w.index()) return v.index() <= w.index();
+          return my::get<I>(v) <= my::get<I>(w);
+        }
+      };
+      template <class Dummy>
+      struct less_eq_index_visitor_impl<type_num, Dummy>
+      {
+        static bool visit_impl(const my_variant& v, const my_variant& w)
+        {
+          assert(v.valueless_by_exception());
+          return true;
+        }
+      };
+      struct less_eq_index_visitor
+      {
+        const my_variant& v1;
+        const my_variant& v2;
+        bool& result;
+        less_eq_index_visitor(const my_variant& v1, const my_variant& v2, bool& result): v1(v1), v2(v2), result(result) {}
+        template <std::size_t I>
+        void visit() { result = less_eq_index_visitor_impl<I>::visit_impl(v1, v2); }
+      };
+
+      template <std::size_t I, class Dummy = void>
+      struct greater_eq_index_visitor_impl
+      {
+        static bool visit_impl(const my_variant& v, const my_variant& w)
+        {
+          assert(I == v.index());
+          if (w.valueless_by_exception()) return true;
+          if (v.index() != w.index()) return v.index() >= w.index();
+          return my::get<I>(v) >= my::get<I>(w);
+        }
+      };
+      template <class Dummy>
+      struct greater_eq_index_visitor_impl<type_num, Dummy>
+      {
+        static bool visit_impl(const my_variant& v, const my_variant& w)
+        {
+          assert(v.valueless_by_exception());
+          return false;
+        }
+      };
+      struct greater_eq_index_visitor
+      {
+        const my_variant& v1;
+        const my_variant& v2;
+        bool& result;
+        greater_eq_index_visitor(const my_variant& v1, const my_variant& v2, bool& result): v1(v1), v2(v2), result(result) {}
+        template <std::size_t I>
+        void visit() { result = greater_eq_index_visitor_impl<I>::visit_impl(v1, v2); }
+      };
+    };
+
+  }
+
+  template <class TypeList, template <class> class Storage>
+  bool operator==(const variant<TypeList, Storage>& v1, const variant<TypeList, Storage>& v2)
+  {
+    typedef typename detail::variant_relational_operators<TypeList, Storage>::equal_index_visitor my_equal_index_visitor;
+    bool result = false;
+    detail::variant_index_visit<TypeList>((my_equal_index_visitor(v1, v2, result)), v1.index());
+    return result;
+  }
+  template <class TypeList, template <class> class Storage>
+  bool operator!=(const variant<TypeList, Storage>& v1, const variant<TypeList, Storage>& v2) { return !(v1 == v2); }
+  template <class TypeList, template <class> class Storage>
+  bool operator<(const variant<TypeList, Storage>& v1, const variant<TypeList, Storage>& v2)
+  {
+    typedef typename detail::variant_relational_operators<TypeList, Storage>::less_index_visitor my_less_index_visitor;
+    bool result = false;
+    detail::variant_index_visit<TypeList>((my_less_index_visitor(v1, v2, result)), v1.index());
+    return result;
+  }
+  template <class TypeList, template <class> class Storage>
+  bool operator>(const variant<TypeList, Storage>& v1, const variant<TypeList, Storage>& v2)
+  {
+    typedef typename detail::variant_relational_operators<TypeList, Storage>::greater_index_visitor my_greater_index_visitor;
+    bool result = false;
+    detail::variant_index_visit<TypeList>((my_greater_index_visitor(v1, v2, result)), v1.index());
+    return result;
+  }
+  template <class TypeList, template <class> class Storage>
+  bool operator<=(const variant<TypeList, Storage>& v1, const variant<TypeList, Storage>& v2)
+  {
+    typedef typename detail::variant_relational_operators<TypeList, Storage>::less_eq_index_visitor my_less_eq_index_visitor;
+    bool result = false;
+    detail::variant_index_visit<TypeList>((my_less_eq_index_visitor(v1, v2, result)), v1.index());
+    return result;
+  }
+  template <class TypeList, template <class> class Storage>
+  bool operator>=(const variant<TypeList, Storage>& v1, const variant<TypeList, Storage>& v2)
+  {
+    typedef typename detail::variant_relational_operators<TypeList, Storage>::greater_eq_index_visitor my_greater_eq_index_visitor;
+    bool result = false;
+    detail::variant_index_visit<TypeList>((my_greater_eq_index_visitor(v1, v2, result)), v1.index());
+    return result;
+  }
 }
 
 #endif
