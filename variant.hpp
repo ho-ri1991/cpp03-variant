@@ -528,7 +528,7 @@ namespace my {
           else
           {
             detail::variant_index_visit<TypeList>(destroy_visitor(storage), storage.discriminator);
-            storage.ptr = new(storage.ptr) U(val);
+            storage.ptr = new U(val);
             storage.discriminator = I;
           }
         }
