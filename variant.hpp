@@ -208,8 +208,10 @@ namespace my {
       template <class T>
       const T* get_as() const { return reinterpret_cast<const T*>(ptr); }
     private:
-      template <std::size_t I, class Dummy = void>
-      struct destroy_visitor_impl
+      template <class T, class Dummy = void>
+      struct destroy_visitor_impl;
+      template <std::size_t I, class Dummy>
+      struct destroy_visitor_impl< type_traits::integral_constant<std::size_t, I>, Dummy >
       {
         static void visit_impl(local_storage& storage) MY_NOEXCEPT
         {
@@ -219,13 +221,13 @@ namespace my {
         }
       };
       template <class Dummy>
-      struct destroy_visitor_impl<type_num, Dummy> { static void visit_impl(local_storage& storage) MY_NOEXCEPT { storage.discriminator = variant_nops; } };
+      struct destroy_visitor_impl< type_traits::integral_constant<std::size_t, (std::size_t)type_num>, Dummy> { static void visit_impl(local_storage& storage) MY_NOEXCEPT { storage.discriminator = variant_nops; } };
       struct destroy_visitor
       {
         local_storage& storage;
         destroy_visitor(local_storage& storage): storage(storage) {}
         template <std::size_t I>
-        void visit() MY_NOEXCEPT { destroy_visitor_impl<I>::visit_impl(storage); }
+        void visit() MY_NOEXCEPT { destroy_visitor_impl< type_traits::integral_constant<std::size_t, I> >::visit_impl(storage); }
       };
       struct overload_initializer 
       {
@@ -275,8 +277,10 @@ namespace my {
           }
         }
       };
-      template <std::size_t I, class Dummy = void>
-      struct copy_ctor_visitor_impl
+      template <class T, class Dummy = void>
+      struct copy_ctor_visitor_impl;
+      template <std::size_t I, class Dummy>
+      struct copy_ctor_visitor_impl< type_traits::integral_constant<std::size_t, I>, Dummy >
       {
         typedef typename type_traits::get<TypeList, I>::type T;
         static void visit_impl(const local_storage& from, local_storage& to)
@@ -294,17 +298,19 @@ namespace my {
         }
       };
       template <class Dummy>
-      struct copy_ctor_visitor_impl<type_num, Dummy> { static void visit_impl(const local_storage& from, local_storage& to) { to.discriminator = variant_nops; } };
+      struct copy_ctor_visitor_impl< type_traits::integral_constant<std::size_t, (std::size_t)type_num>, Dummy > { static void visit_impl(const local_storage& from, local_storage& to) { to.discriminator = variant_nops; } };
       struct copy_ctor_visitor
       {
         const local_storage& from;
         local_storage& to;
         copy_ctor_visitor(const local_storage& from, local_storage& to): from(from), to(to) {}
         template <std::size_t I>
-        void visit() { copy_ctor_visitor_impl<I>::visit_impl(from , to); }
+        void visit() { copy_ctor_visitor_impl< type_traits::integral_constant<std::size_t, I> >::visit_impl(from , to); }
       };
-      template <std::size_t I, class Dummy = void>
-      struct copy_assign_visitor_impl
+      template <class T, class Dummy = void>
+      struct copy_assign_visitor_impl;
+      template <std::size_t I, class Dummy>
+      struct copy_assign_visitor_impl< type_traits::integral_constant<std::size_t, I>, Dummy>
       {
         static void visit_impl(const local_storage& from, local_storage& to)
         {
@@ -330,7 +336,7 @@ namespace my {
         }
       };
       template <class Dummy>
-      struct copy_assign_visitor_impl<type_num, Dummy>
+      struct copy_assign_visitor_impl< type_traits::integral_constant<std::size_t, (std::size_t)type_num>, Dummy>
       { 
         static void visit_impl(const local_storage& from, local_storage& to)
         { 
@@ -344,7 +350,7 @@ namespace my {
         local_storage& to;
         copy_assign_visitor(const local_storage& from, local_storage& to): from(from), to(to) {}
         template <std::size_t I>
-        void visit() { copy_assign_visitor_impl<I>::visit_impl(from, to); }
+        void visit() { copy_assign_visitor_impl< type_traits::integral_constant<std::size_t, I> >::visit_impl(from, to); }
       };
 
     public:
@@ -402,8 +408,10 @@ namespace my {
         (overload_assigner(*this)).template invoke<type_traits::find<TypeList, T>::value>(val);
       }
     private:
-      template <std::size_t I, class Dummy = void>
-      struct swap_visitor_impl
+      template <class T, class Dummy = void>
+      struct swap_visitor_impl;
+      template <std::size_t I, class Dummy>
+      struct swap_visitor_impl< type_traits::integral_constant<std::size_t, I>, Dummy>
       {
         static void visit_impl(local_storage& this_, local_storage& other_)
         {
@@ -423,7 +431,7 @@ namespace my {
         }
       };
       template <class Dummy>
-      struct swap_visitor_impl<type_num, Dummy>
+      struct swap_visitor_impl< type_traits::integral_constant<std::size_t, (std::size_t)type_num>, Dummy>
       {
         static void visit_impl(local_storage& this_, local_storage& other_)
         {
@@ -441,7 +449,7 @@ namespace my {
         local_storage& other_;
         swap_visitor(local_storage& this_, local_storage& other_): this_(this_), other_(other_) {}
         template <std::size_t I>
-        void visit() { swap_visitor_impl<I>::visit_impl(this_, other_); }
+        void visit() { swap_visitor_impl< type_traits::integral_constant<std::size_t, I> >::visit_impl(this_, other_); }
       };
     public:
       void swap(local_storage& other)
@@ -465,8 +473,10 @@ namespace my {
       template <class T>
       const T* get_as() const MY_NOEXCEPT { return reinterpret_cast<const T*>(ptr); }
     private:
-      template <std::size_t I, class Dummy = void>
-      struct destroy_visitor_impl
+      template <class T, class Dummy = void>
+      struct destroy_visitor_impl;
+      template <std::size_t I, class Dummy>
+      struct destroy_visitor_impl< type_traits::integral_constant<std::size_t, I>, Dummy>
       {
         static void visit_impl(dynamic_storage& storage) MY_NOEXCEPT
         {
@@ -477,7 +487,7 @@ namespace my {
         }
       };
       template <class Dummy>
-      struct destroy_visitor_impl<type_num, Dummy>
+      struct destroy_visitor_impl< type_traits::integral_constant<std::size_t, (std::size_t)type_num>, Dummy>
       {
         static void visit_impl(dynamic_storage& storage) MY_NOEXCEPT
         {
@@ -490,7 +500,7 @@ namespace my {
         dynamic_storage& storage;
         destroy_visitor(dynamic_storage& storage): storage(storage) {}
         template <std::size_t I>
-        void visit() MY_NOEXCEPT { destroy_visitor_impl<I>::visit_impl(storage); }
+        void visit() MY_NOEXCEPT { destroy_visitor_impl< type_traits::integral_constant<std::size_t, I> >::visit_impl(storage); }
       };
       struct overload_initializer 
       {
@@ -533,8 +543,10 @@ namespace my {
           }
         }
       };
-      template <std::size_t I, class Dummy = void>
-      struct copy_ctor_visitor_impl
+      template <class T, class Dummy = void>
+      struct copy_ctor_visitor_impl;
+      template <std::size_t I, class Dummy>
+      struct copy_ctor_visitor_impl< type_traits::integral_constant<std::size_t, I>, Dummy>
       {
         typedef typename type_traits::get<TypeList, I>::type T;
         static void visit_impl(const dynamic_storage& from, dynamic_storage& to)
@@ -553,17 +565,19 @@ namespace my {
         }
       };
       template <class Dummy>
-      struct copy_ctor_visitor_impl<type_num, Dummy> { static void visit_impl(const dynamic_storage& from, dynamic_storage& to) { to.discriminator = variant_nops; } };
+      struct copy_ctor_visitor_impl< type_traits::integral_constant<std::size_t, (std::size_t)type_num>, Dummy> { static void visit_impl(const dynamic_storage& from, dynamic_storage& to) { to.discriminator = variant_nops; } };
       struct copy_ctor_visitor
       {
         const dynamic_storage& from;
         dynamic_storage& to;
         copy_ctor_visitor(const dynamic_storage& from, dynamic_storage& to): from(from), to(to) {}
         template <std::size_t I>
-        void visit() { copy_ctor_visitor_impl<I>::visit_impl(from , to); }
+        void visit() { copy_ctor_visitor_impl< type_traits::integral_constant<std::size_t, I> >::visit_impl(from , to); }
       };
-      template <std::size_t I, class Dummy = void>
-      struct copy_assign_visitor_impl
+      template <class T, class Dummy = void>
+      struct copy_assign_visitor_impl;
+      template <std::size_t I, class Dummy>
+      struct copy_assign_visitor_impl< type_traits::integral_constant<std::size_t, I>, Dummy>
       {
         static void visit_impl(const dynamic_storage& from, dynamic_storage& to)
         {
@@ -582,7 +596,7 @@ namespace my {
         }
       };
       template <class Dummy>
-      struct copy_assign_visitor_impl<type_num, Dummy>
+      struct copy_assign_visitor_impl< type_traits::integral_constant<std::size_t, (std::size_t)type_num>, Dummy>
       { 
         static void visit_impl(const dynamic_storage& from, dynamic_storage& to)
         { 
@@ -595,7 +609,7 @@ namespace my {
         dynamic_storage& to;
         copy_assign_visitor(const dynamic_storage& from, dynamic_storage& to): from(from), to(to) {}
         template <std::size_t I>
-        void visit() { copy_assign_visitor_impl<I>::visit_impl(from, to); }
+        void visit() { copy_assign_visitor_impl< type_traits::integral_constant<std::size_t, I> >::visit_impl(from, to); }
       };
 
     public:
@@ -860,32 +874,34 @@ namespace my {
     struct variant_visitor
     {
       typedef typename Visitor::result_type result_type;
-      template <std::size_t I, class Dummy = void>
-      struct variant_visitor_impl
+      template <class T, class Dummy = void>
+      struct variant_visitor_impl;
+      template <std::size_t I, class Dummy>
+      struct variant_visitor_impl< type_traits::integral_constant<std::size_t, I>, Dummy>
       {
         static result_type visit(Visitor vis, variant<TypeList, Storage>& var)
         {
           if (I == var.index())
             return vis(my::get<I>(var));
           else
-            return variant_visitor_impl<I + 1>::visit(vis, var);
+            return variant_visitor_impl< type_traits::integral_constant<std::size_t, I + 1> >::visit(vis, var);
         }
         static result_type visit(Visitor vis, const variant<TypeList, Storage>& var)
         {
           if (I == var.index())
             return vis(my::get<I>(var));
           else
-            return variant_visitor_impl<I + 1>::visit(vis, var);
+            return variant_visitor_impl< type_traits::integral_constant<std::size_t, I + 1> >::visit(vis, var);
         }
       };
       template <class Dummy>
-      struct variant_visitor_impl<variant_size<variant<TypeList, Storage> >::value, Dummy>
+      struct variant_visitor_impl< type_traits::integral_constant<std::size_t, variant_size<variant<TypeList, Storage> >::value>, Dummy>
       {
         static result_type visit(Visitor vis, const variant<TypeList, Storage>& var) { throw bad_variant_access(); }
       };
 
-      static result_type visit(Visitor vis, variant<TypeList, Storage>& var) { return variant_visitor_impl<0>::visit(vis, var); }
-      static result_type visit(Visitor vis, const variant<TypeList, Storage>& var) { return variant_visitor_impl<0>::visit(vis, var); }
+      static result_type visit(Visitor vis, variant<TypeList, Storage>& var) { return variant_visitor_impl< type_traits::integral_constant<std::size_t, 0> >::visit(vis, var); }
+      static result_type visit(Visitor vis, const variant<TypeList, Storage>& var) { return variant_visitor_impl< type_traits::integral_constant<std::size_t, 0> >::visit(vis, var); }
     };
   }
 
@@ -908,8 +924,10 @@ namespace my {
       typedef variant<TypeList, Storage> my_variant;
       enum { type_num = variant_size<my_variant>::value };
 
-      template <std::size_t I, class Dummy = void>
-      struct equal_index_visitor_impl
+      template <class T, class Dummy = void>
+      struct equal_index_visitor_impl;
+      template <std::size_t I, class Dummy>
+      struct equal_index_visitor_impl< type_traits::integral_constant<std::size_t, I>, Dummy>
       {
         static bool visit_impl(const my_variant& v1, const my_variant& v2)
         {
@@ -919,7 +937,7 @@ namespace my {
         }
       };
       template <class Dummy>
-      struct equal_index_visitor_impl<type_num, Dummy>
+      struct equal_index_visitor_impl< type_traits::integral_constant<std::size_t, (std::size_t)type_num>, Dummy>
       {
         static bool visit_impl(const my_variant& v1, const my_variant& v2)
         {
@@ -934,11 +952,13 @@ namespace my {
         bool& result;
         equal_index_visitor(const my_variant& v1, const my_variant& v2, bool& result): v1(v1), v2(v2), result(result) {}
         template <std::size_t I>
-        void visit() { result = equal_index_visitor_impl<I>::visit_impl(v1, v2); }
+        void visit() { result = equal_index_visitor_impl< type_traits::integral_constant<std::size_t, I> >::visit_impl(v1, v2); }
       };
 
-      template <std::size_t I, class Dummy = void>
-      struct less_index_visitor_impl
+      template <class T, class Dummy = void>
+      struct less_index_visitor_impl;
+      template <std::size_t I, class Dummy>
+      struct less_index_visitor_impl< type_traits::integral_constant<std::size_t, I>, Dummy>
       {
         static bool visit_impl(const my_variant& v, const my_variant& w)
         {
@@ -949,7 +969,7 @@ namespace my {
         }
       };
       template <class Dummy>
-      struct less_index_visitor_impl<type_num, Dummy>
+      struct less_index_visitor_impl< type_traits::integral_constant<std::size_t, (std::size_t)type_num>, Dummy>
       {
         static bool visit_impl(const my_variant& v, const my_variant& w)
         {
@@ -964,11 +984,13 @@ namespace my {
         bool& result;
         less_index_visitor(const my_variant& v1, const my_variant& v2, bool& result): v1(v1), v2(v2), result(result) {}
         template <std::size_t I>
-        void visit() { result = less_index_visitor_impl<I>::visit_impl(v1, v2); }
+        void visit() { result = less_index_visitor_impl< type_traits::integral_constant<std::size_t, I> >::visit_impl(v1, v2); }
       };
 
-      template <std::size_t I, class Dummy = void>
-      struct greater_index_visitor_impl
+      template <class T, class Dummy = void>
+      struct greater_index_visitor_impl;
+      template <std::size_t I, class Dummy>
+      struct greater_index_visitor_impl< type_traits::integral_constant<std::size_t, I>, Dummy>
       {
         static bool visit_impl(const my_variant& v, const my_variant& w)
         {
@@ -979,7 +1001,7 @@ namespace my {
         }
       };
       template <class Dummy>
-      struct greater_index_visitor_impl<type_num, Dummy>
+      struct greater_index_visitor_impl< type_traits::integral_constant<std::size_t, (std::size_t)type_num>, Dummy>
       {
         static bool visit_impl(const my_variant& v, const my_variant& w)
         {
@@ -994,11 +1016,13 @@ namespace my {
         bool& result;
         greater_index_visitor(const my_variant& v1, const my_variant& v2, bool& result): v1(v1), v2(v2), result(result) {}
         template <std::size_t I>
-        void visit() { result = greater_index_visitor_impl<I>::visit_impl(v1, v2); }
+        void visit() { result = greater_index_visitor_impl< type_traits::integral_constant<std::size_t, I> >::visit_impl(v1, v2); }
       };
 
-      template <std::size_t I, class Dummy = void>
-      struct less_eq_index_visitor_impl
+      template <class T, class Dummy = void>
+      struct less_eq_index_visitor_impl;
+      template <std::size_t I, class Dummy>
+      struct less_eq_index_visitor_impl<type_traits::integral_constant<std::size_t, I>, Dummy>
       {
         static bool visit_impl(const my_variant& v, const my_variant& w)
         {
@@ -1009,7 +1033,7 @@ namespace my {
         }
       };
       template <class Dummy>
-      struct less_eq_index_visitor_impl<type_num, Dummy>
+      struct less_eq_index_visitor_impl< type_traits::integral_constant<std::size_t, (std::size_t)type_num>, Dummy>
       {
         static bool visit_impl(const my_variant& v, const my_variant& w)
         {
@@ -1024,11 +1048,13 @@ namespace my {
         bool& result;
         less_eq_index_visitor(const my_variant& v1, const my_variant& v2, bool& result): v1(v1), v2(v2), result(result) {}
         template <std::size_t I>
-        void visit() { result = less_eq_index_visitor_impl<I>::visit_impl(v1, v2); }
+        void visit() { result = less_eq_index_visitor_impl< type_traits::integral_constant<std::size_t, I> >::visit_impl(v1, v2); }
       };
 
-      template <std::size_t I, class Dummy = void>
-      struct greater_eq_index_visitor_impl
+      template <class T, class Dummy = void>
+      struct greater_eq_index_visitor_impl;
+      template <std::size_t I, class Dummy>
+      struct greater_eq_index_visitor_impl< type_traits::integral_constant<std::size_t, I>, Dummy>
       {
         static bool visit_impl(const my_variant& v, const my_variant& w)
         {
@@ -1039,7 +1065,7 @@ namespace my {
         }
       };
       template <class Dummy>
-      struct greater_eq_index_visitor_impl<type_num, Dummy>
+      struct greater_eq_index_visitor_impl< type_traits::integral_constant<std::size_t, (std::size_t)type_num>, Dummy>
       {
         static bool visit_impl(const my_variant& v, const my_variant& w)
         {
@@ -1054,7 +1080,7 @@ namespace my {
         bool& result;
         greater_eq_index_visitor(const my_variant& v1, const my_variant& v2, bool& result): v1(v1), v2(v2), result(result) {}
         template <std::size_t I>
-        void visit() { result = greater_eq_index_visitor_impl<I>::visit_impl(v1, v2); }
+        void visit() { result = greater_eq_index_visitor_impl< type_traits::integral_constant<std::size_t, I> >::visit_impl(v1, v2); }
       };
     };
 
